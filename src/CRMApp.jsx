@@ -1,8 +1,7 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
+import { fetchLeads, isSupabaseConfigured, saveLeads, supabase, toCRMUser } from './supabase';
 
 const STORAGE_KEY = 'yalabyte-crm-leads';
-const SESSION_KEY = 'yalabyte-crm-session';
-const ACCOUNTS_KEY = 'yalabyte-crm-accounts';
 const ALLOWED_EMAIL_DOMAIN = 'yalabyte.com';
 
 const stages = [
@@ -162,43 +161,6 @@ function Brand({ compact = false }) {
   );
 }
 
-function readAccounts() {
-  try {
-    const accounts = JSON.parse(window.localStorage.getItem(ACCOUNTS_KEY) || '[]');
-    return Array.isArray(accounts) ? accounts : [];
-  } catch {
-    return [];
-  }
-}
-
-function saveAccounts(accounts) {
-  window.localStorage.setItem(ACCOUNTS_KEY, JSON.stringify(accounts));
-}
-
-function saveSession(session) {
-  window.localStorage.setItem(SESSION_KEY, JSON.stringify(session));
-  window.sessionStorage.removeItem(SESSION_KEY);
-}
-
-function readSession() {
-  try {
-    const persistentSession = window.localStorage.getItem(SESSION_KEY);
-    const legacySession = window.sessionStorage.getItem(SESSION_KEY);
-    const raw = persistentSession || legacySession;
-    if (!raw) return null;
-
-    const session = JSON.parse(raw);
-    if (!session?.id || !session?.email) return null;
-
-    if (!persistentSession) saveSession(session);
-    return session;
-  } catch {
-    window.localStorage.removeItem(SESSION_KEY);
-    window.sessionStorage.removeItem(SESSION_KEY);
-    return null;
-  }
-}
-
 function isAllowedTeamEmail(email) {
   return email.trim().toLowerCase().endsWith(`@${ALLOWED_EMAIL_DOMAIN}`);
 }
@@ -209,9 +171,13 @@ function LoginGate({ onUnlock }) {
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [error, setError] = useState('');
+  const [message, setMessage] = useState('');
+  const [busy, setBusy] = useState(false);
 
-  const handleSubmit = (event) => {
+  const handleSubmit = async (event) => {
     event.preventDefault();
+    setError('');
+    setMessage('');
     const normalizedEmail = email.trim().toLowerCase();
 
     if (!isAllowedTeamEmail(normalizedEmail)) {
@@ -224,41 +190,39 @@ function LoginGate({ onUnlock }) {
       return;
     }
 
-    const accounts = readAccounts();
+    setBusy(true);
+    try {
+      if (mode === 'signup') {
+        if (!name.trim()) {
+          setError('Add your name to create the account.');
+          return;
+        }
 
-    if (mode === 'signup') {
-      if (!name.trim()) {
-        setError('Add your name to create the account.');
+        const { data, error: signUpError } = await supabase.auth.signUp({
+          email: normalizedEmail,
+          password,
+          options: {
+            data: { name: name.trim() },
+            emailRedirectTo: `${window.location.origin}/`
+          }
+        });
+        if (signUpError) throw signUpError;
+        if (data.session) onUnlock(toCRMUser(data.user));
+        else setMessage('Account created. Check your YalaByte inbox to confirm your email, then sign in.');
         return;
       }
-      if (accounts.some((account) => account.email === normalizedEmail)) {
-        setError('This email already has a CRM account.');
-        return;
-      }
 
-      const account = {
-        id: createId('user'),
-        name: name.trim(),
+      const { data, error: signInError } = await supabase.auth.signInWithPassword({
         email: normalizedEmail,
-        password,
-        createdAt: new Date().toISOString()
-      };
-      saveAccounts([account, ...accounts]);
-      const session = { id: account.id, name: account.name, email: account.email };
-      saveSession(session);
-      onUnlock(session);
-      return;
+        password
+      });
+      if (signInError) throw signInError;
+      onUnlock(toCRMUser(data.user));
+    } catch (authError) {
+      setError(authError.message || 'Unable to authenticate. Please try again.');
+    } finally {
+      setBusy(false);
     }
-
-    const account = accounts.find((item) => item.email === normalizedEmail && item.password === password);
-    if (!account) {
-      setError('No matching CRM account found.');
-      return;
-    }
-
-    const session = { id: account.id, name: account.name, email: account.email };
-    saveSession(session);
-    onUnlock(session);
   };
 
   return (
@@ -320,8 +284,9 @@ function LoginGate({ onUnlock }) {
             />
           </label>
           {error ? <p className="mt-4 rounded-md bg-red-50 px-3 py-2 text-sm font-medium text-red-700">{error}</p> : null}
-          <button className="mt-5 w-full rounded-lg bg-cyanbrand-500 px-4 py-3 text-sm font-bold text-navy-950 shadow-sm transition hover:-translate-y-0.5 hover:bg-cyanbrand-400 hover:shadow-md">
-            {mode === 'signup' ? 'Create Account' : 'Sign In'}
+          {message ? <p className="mt-4 rounded-md bg-emerald-50 px-3 py-2 text-sm font-medium text-emerald-700">{message}</p> : null}
+          <button disabled={busy} className="mt-5 w-full rounded-lg bg-cyanbrand-500 px-4 py-3 text-sm font-bold text-navy-950 shadow-sm transition hover:-translate-y-0.5 hover:bg-cyanbrand-400 hover:shadow-md disabled:cursor-wait disabled:opacity-60">
+            {busy ? 'Please wait…' : mode === 'signup' ? 'Create Account' : 'Sign In'}
           </button>
         </form>
       </div>
@@ -330,7 +295,11 @@ function LoginGate({ onUnlock }) {
 }
 
 export default function CRMApp() {
-  const [currentUser, setCurrentUser] = useState(readSession);
+  const [currentUser, setCurrentUser] = useState(null);
+  const [authReady, setAuthReady] = useState(false);
+  const [dataReady, setDataReady] = useState(false);
+  const [syncState, setSyncState] = useState('saved');
+  const [dataError, setDataError] = useState('');
   const [leads, setLeads] = useState(readLeads);
   const [selectedId, setSelectedId] = useState(() => readLeads()[0]?.id || '');
   const [draft, setDraft] = useState(initialLead);
@@ -344,6 +313,68 @@ export default function CRMApp() {
   useEffect(() => {
     window.localStorage.setItem(STORAGE_KEY, JSON.stringify(leads));
   }, [leads]);
+
+  useEffect(() => {
+    if (!supabase) {
+      setAuthReady(true);
+      return undefined;
+    }
+
+    const acceptSession = (session) => {
+      const user = toCRMUser(session?.user);
+      setCurrentUser(user && isAllowedTeamEmail(user.email) ? user : null);
+      setAuthReady(true);
+    };
+
+    supabase.auth.getSession().then(({ data }) => acceptSession(data.session));
+    const { data } = supabase.auth.onAuthStateChange((_event, session) => acceptSession(session));
+    return () => data.subscription.unsubscribe();
+  }, []);
+
+  useEffect(() => {
+    if (!currentUser || !supabase) {
+      setDataReady(false);
+      return;
+    }
+
+    let active = true;
+    setDataReady(false);
+    setDataError('');
+
+    fetchLeads()
+      .then(async (remoteLeads) => {
+        if (!active) return;
+        const nextLeads = remoteLeads.length ? remoteLeads : readLeads();
+        if (!remoteLeads.length && nextLeads.length) await saveLeads(nextLeads);
+        if (!active) return;
+        setLeads(nextLeads);
+        setSelectedId(nextLeads[0]?.id || '');
+        setDataReady(true);
+      })
+      .catch((error) => {
+        if (!active) return;
+        setDataError(error.message || 'Unable to load CRM data.');
+        setDataReady(true);
+      });
+
+    return () => {
+      active = false;
+    };
+  }, [currentUser?.id]);
+
+  useEffect(() => {
+    if (!dataReady || !currentUser || !supabase) return undefined;
+    setSyncState('syncing');
+    const timer = window.setTimeout(() => {
+      saveLeads(leads)
+        .then(() => setSyncState('saved'))
+        .catch((error) => {
+          setSyncState('error');
+          setDataError(error.message || 'Unable to save CRM data.');
+        });
+    }, 450);
+    return () => window.clearTimeout(timer);
+  }, [leads, dataReady, currentUser?.id]);
 
   useEffect(() => {
     if (selectedLead) {
@@ -458,14 +489,35 @@ export default function CRMApp() {
     event.target.value = '';
   };
 
-  const signOut = () => {
-    window.localStorage.removeItem(SESSION_KEY);
-    window.sessionStorage.removeItem(SESSION_KEY);
+  const signOut = async () => {
+    await supabase.auth.signOut();
     setCurrentUser(null);
   };
 
+  if (!isSupabaseConfigured) {
+    return (
+      <main className="login-shell flex min-h-screen items-center justify-center px-5 py-10">
+        <div className="w-full max-w-lg rounded-2xl bg-white p-8 shadow-soft">
+          <Brand />
+          <h1 className="mt-8 text-2xl font-bold tracking-tight">Connect the CRM database</h1>
+          <p className="mt-3 text-sm leading-6 text-slate-600">
+            Add <code>VITE_SUPABASE_URL</code> and <code>VITE_SUPABASE_PUBLISHABLE_KEY</code> in Vercel, then redeploy.
+          </p>
+        </div>
+      </main>
+    );
+  }
+
+  if (!authReady) {
+    return <main className="login-shell flex min-h-screen items-center justify-center text-sm font-semibold text-white">Opening secure CRM…</main>;
+  }
+
   if (!currentUser) {
     return <LoginGate onUnlock={setCurrentUser} />;
+  }
+
+  if (!dataReady) {
+    return <main className="login-shell flex min-h-screen items-center justify-center text-sm font-semibold text-white">Loading shared leads…</main>;
   }
 
   const activeTone = stages.find((stage) => stage.id === draft.status)?.tone || stages[0].tone;
@@ -478,7 +530,9 @@ export default function CRMApp() {
           <div className="flex flex-wrap items-center gap-2">
             <div className="mr-1 hidden text-right sm:block">
               <p className="text-sm font-semibold text-slate-900">{currentUser.name}</p>
-              <p className="text-xs text-slate-500">{currentUser.email}</p>
+              <p className="text-xs text-slate-500">
+                {currentUser.email} · {syncState === 'syncing' ? 'Saving…' : syncState === 'error' ? 'Sync issue' : 'Synced'}
+              </p>
             </div>
             <button className="rounded-md border border-slate-200 bg-white px-3 py-2 text-sm font-semibold hover:bg-slate-50" onClick={exportLeads}>
               Export
@@ -502,6 +556,12 @@ export default function CRMApp() {
           <Stat label="Due now" value={stats.dueToday} />
         </div>
       </div>
+
+      {dataError ? (
+        <div className="mx-auto mt-4 max-w-[1500px] px-4 sm:px-6">
+          <p className="rounded-lg border border-red-200 bg-red-50 px-4 py-3 text-sm font-medium text-red-700">{dataError}</p>
+        </div>
+      ) : null}
 
       <div className="mx-auto grid max-w-[1500px] gap-4 px-4 py-4 sm:px-6 xl:grid-cols-[360px_1fr]">
         <aside className="overflow-hidden rounded-xl border border-slate-200 bg-white shadow-card">
