@@ -465,9 +465,10 @@ export default function CRMApp() {
   const [notifications, setNotifications] = useState([]);
   const [notificationsOpen, setNotificationsOpen] = useState(false);
   const [deleting, setDeleting] = useState(false);
+  const [isCreatingLead, setIsCreatingLead] = useState(false);
   const importInputRef = useRef(null);
 
-  const selectedLead = leads.find((lead) => lead.id === selectedId) || leads[0] || null;
+  const selectedLead = isCreatingLead ? null : leads.find((lead) => lead.id === selectedId) || leads[0] || null;
 
   useEffect(() => {
     window.localStorage.setItem(STORAGE_KEY, JSON.stringify(leads));
@@ -591,13 +592,14 @@ export default function CRMApp() {
   }, [dataReady, currentUser?.id]);
 
   useEffect(() => {
+    if (isCreatingLead) return;
     if (selectedLead) {
       setDraft({ ...initialLead, ...selectedLead });
       setNote('');
     } else {
       setDraft(initialLead);
     }
-  }, [selectedLead?.id]);
+  }, [selectedLead?.id, isCreatingLead]);
 
   const filteredLeads = useMemo(() => {
     const normalizedQuery = query.trim().toLowerCase();
@@ -642,23 +644,44 @@ export default function CRMApp() {
 
   const saveDraft = (event) => {
     event.preventDefault();
+    if (isCreatingLead) {
+      const now = new Date().toISOString();
+      const lead = {
+        ...initialLead,
+        ...draft,
+        id: draft.id || createId('lead'),
+        name: draft.name.trim() || 'New lead',
+        owner: draft.owner || currentUser?.name || '',
+        createdAt: now,
+        updatedAt: now,
+        activities: [{ id: createId('activity'), type: 'Created', text: 'Lead created manually.', at: now }]
+      };
+      setLeads((current) => [lead, ...current]);
+      setSelectedId(lead.id);
+      setIsCreatingLead(false);
+      return;
+    }
     if (!selectedLead) return;
     updateLead(selectedLead.id, draft, 'Lead details updated.');
   };
 
   const createLead = () => {
-    const now = new Date().toISOString();
-    const lead = {
+    setDraft({
       ...initialLead,
       id: createId('lead'),
-      name: 'New lead',
       owner: currentUser?.name || '',
-      createdAt: now,
-      updatedAt: now,
-      activities: [{ id: createId('activity'), type: 'Created', text: 'Lead created manually.', at: now }]
-    };
-    setLeads((current) => [lead, ...current]);
-    setSelectedId(lead.id);
+      createdAt: '',
+      updatedAt: '',
+      activities: []
+    });
+    setSelectedId('');
+    setIsCreatingLead(true);
+  };
+
+  const cancelCreateLead = () => {
+    setIsCreatingLead(false);
+    setSelectedId(leads[0]?.id || '');
+    setDraft(initialLead);
   };
 
   const addActivity = () => {
@@ -668,6 +691,10 @@ export default function CRMApp() {
   };
 
   const changeStatus = (status) => {
+    if (isCreatingLead) {
+      setDraft((current) => ({ ...current, status }));
+      return;
+    }
     if (!selectedLead) return;
     const label = stages.find((stage) => stage.id === status)?.label || status;
     setDraft((current) => ({ ...current, status }));
@@ -816,8 +843,12 @@ export default function CRMApp() {
               Import
             </button>
             <input ref={importInputRef} className="hidden" type="file" accept="application/json" onChange={importLeads} />
-            <button className="rounded-md bg-cyanbrand-500 px-3 py-2 text-sm font-bold text-slate-950 hover:bg-cyanbrand-400" onClick={createLead}>
-              New Lead
+            <button
+              className="rounded-md bg-cyanbrand-500 px-3 py-2 text-sm font-bold text-slate-950 hover:bg-cyanbrand-400 disabled:cursor-not-allowed disabled:opacity-60"
+              disabled={isCreatingLead}
+              onClick={createLead}
+            >
+              {isCreatingLead ? 'Drafting…' : 'New Lead'}
             </button>
             <button className="rounded-md border border-slate-200 bg-white px-3 py-2 text-sm font-semibold hover:bg-slate-50" onClick={signOut}>
               Sign Out
@@ -872,7 +903,10 @@ export default function CRMApp() {
                 <button
                   key={lead.id}
                   className={`block w-full border-b border-slate-100 p-4 text-left transition hover:bg-slate-50 ${selectedLead?.id === lead.id ? 'bg-cyan-50' : 'bg-white'}`}
-                  onClick={() => setSelectedId(lead.id)}
+                  onClick={() => {
+                    setIsCreatingLead(false);
+                    setSelectedId(lead.id);
+                  }}
                 >
                   <div className="flex items-start justify-between gap-3">
                     <div>
@@ -900,27 +934,43 @@ export default function CRMApp() {
 
         <section className="grid gap-4 lg:grid-cols-[1fr_360px]">
           <form className="rounded-xl border border-slate-200 bg-white p-4 shadow-card sm:p-6" onSubmit={saveDraft}>
-            {selectedLead ? (
+            {selectedLead || isCreatingLead ? (
               <>
                 <div className="flex flex-col gap-3 border-b border-slate-200 pb-4 sm:flex-row sm:items-start sm:justify-between">
                   <div>
+                    {isCreatingLead ? (
+                      <span className="inline-flex rounded-md border border-violet-100 bg-violet-50 px-2.5 py-1 text-xs font-bold text-violet-700">Unsaved draft</span>
+                    ) : (
                     <span className={`inline-flex rounded-md border px-2.5 py-1 text-xs font-bold ${activeTone}`}>
                       {stages.find((stage) => stage.id === draft.status)?.label}
                     </span>
-                    <h2 className="mt-3 text-2xl font-semibold tracking-normal">{draft.name || 'Unnamed lead'}</h2>
-                    <p className="mt-1 text-sm text-slate-500">Created {formatDate(draft.createdAt)} from {draft.source || 'Unknown source'}</p>
+                    )}
+                    <h2 className="mt-3 text-2xl font-semibold tracking-normal">{isCreatingLead ? 'Create a new lead' : draft.name || 'Unnamed lead'}</h2>
+                    <p className="mt-1 text-sm text-slate-500">
+                      {isCreatingLead ? 'Nothing is saved to the database until you create this lead.' : `Created ${formatDate(draft.createdAt)} from ${draft.source || 'Unknown source'}`}
+                    </p>
                   </div>
                   <div className="flex gap-2">
-                    <button
-                      className="rounded-md border border-rose-200 bg-white px-4 py-2.5 text-sm font-bold text-rose-600 hover:bg-rose-50 disabled:cursor-wait disabled:opacity-60"
-                      disabled={deleting}
-                      onClick={handleDeleteLead}
-                      type="button"
-                    >
-                      {deleting ? 'Deleting…' : 'Delete'}
-                    </button>
+                    {isCreatingLead ? (
+                      <button
+                        className="rounded-md border border-slate-200 bg-white px-4 py-2.5 text-sm font-bold text-slate-600 hover:bg-slate-50"
+                        onClick={cancelCreateLead}
+                        type="button"
+                      >
+                        Cancel
+                      </button>
+                    ) : (
+                      <button
+                        className="rounded-md border border-rose-200 bg-white px-4 py-2.5 text-sm font-bold text-rose-600 hover:bg-rose-50 disabled:cursor-wait disabled:opacity-60"
+                        disabled={deleting}
+                        onClick={handleDeleteLead}
+                        type="button"
+                      >
+                        {deleting ? 'Deleting…' : 'Delete'}
+                      </button>
+                    )}
                     <button className="rounded-md bg-slate-950 px-4 py-2.5 text-sm font-bold text-white hover:bg-slate-800" type="submit">
-                      Save Lead
+                      {isCreatingLead ? 'Create Lead' : 'Save Lead'}
                     </button>
                   </div>
                 </div>
@@ -1010,24 +1060,30 @@ export default function CRMApp() {
 
             <div className="mt-6 border-t border-slate-200 pt-5">
               <h3 className="text-base font-semibold tracking-normal">Activity</h3>
-              <textarea
-                className={`${fieldClass()} min-h-24`}
-                placeholder="Add progress note"
-                value={note}
-                onChange={(event) => setNote(event.target.value)}
-              />
-              <button className="mt-2 w-full rounded-md bg-cyanbrand-500 px-3 py-2 text-sm font-bold text-slate-950 hover:bg-cyanbrand-400" onClick={addActivity} type="button">
-                Add Note
-              </button>
-              <div className="mt-4 space-y-3">
-                {(selectedLead?.activities || []).map((activity) => (
-                  <div key={activity.id} className="rounded-md border border-slate-200 bg-slate-50 p-3">
-                    <p className="text-sm font-semibold text-slate-950">{activity.text}</p>
-                    <p className="mt-1 text-xs text-slate-500">{formatDate(activity.at)}</p>
+              {isCreatingLead ? (
+                <p className="mt-3 rounded-lg bg-slate-50 px-3 py-3 text-sm leading-6 text-slate-500">Activity tracking begins after the lead is created.</p>
+              ) : (
+                <>
+                  <textarea
+                    className={`${fieldClass()} min-h-24`}
+                    placeholder="Add progress note"
+                    value={note}
+                    onChange={(event) => setNote(event.target.value)}
+                  />
+                  <button className="mt-2 w-full rounded-md bg-cyanbrand-500 px-3 py-2 text-sm font-bold text-slate-950 hover:bg-cyanbrand-400" onClick={addActivity} type="button">
+                    Add Note
+                  </button>
+                  <div className="mt-4 space-y-3">
+                    {(selectedLead?.activities || []).map((activity) => (
+                      <div key={activity.id} className="rounded-md border border-slate-200 bg-slate-50 p-3">
+                        <p className="text-sm font-semibold text-slate-950">{activity.text}</p>
+                        <p className="mt-1 text-xs text-slate-500">{formatDate(activity.at)}</p>
+                      </div>
+                    ))}
+                    {!selectedLead?.activities?.length ? <p className="text-sm text-slate-500">No activity yet.</p> : null}
                   </div>
-                ))}
-                {!selectedLead?.activities?.length ? <p className="text-sm text-slate-500">No activity yet.</p> : null}
-              </div>
+                </>
+              )}
             </div>
           </aside>
         </section>
