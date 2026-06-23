@@ -33,3 +33,10 @@ to authenticated
 using (lower(coalesce(auth.jwt() ->> 'email', '')) like '%@yalabyte.com');
 
 grant select, insert, update, delete on public.leads to authenticated;
+
+do $$
+begin
+  alter publication supabase_realtime add table public.leads;
+exception
+  when duplicate_object then null;
+end $$;

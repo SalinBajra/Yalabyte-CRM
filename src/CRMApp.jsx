@@ -377,6 +377,35 @@ export default function CRMApp() {
   }, [leads, dataReady, currentUser?.id]);
 
   useEffect(() => {
+    if (!dataReady || !currentUser || !supabase) return undefined;
+
+    const channel = supabase
+      .channel('crm-leads-live')
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'leads' }, (payload) => {
+        setLeads((current) => {
+          if (payload.eventType === 'DELETE') {
+            return current.filter((lead) => lead.id !== payload.old?.id);
+          }
+
+          const incoming = payload.new?.data;
+          if (!incoming?.id) return current;
+          const existingIndex = current.findIndex((lead) => lead.id === incoming.id);
+          if (existingIndex === -1) return [incoming, ...current];
+          if (JSON.stringify(current[existingIndex]) === JSON.stringify(incoming)) return current;
+
+          const next = [...current];
+          next[existingIndex] = incoming;
+          return next;
+        });
+      })
+      .subscribe();
+
+    return () => {
+      supabase.removeChannel(channel);
+    };
+  }, [dataReady, currentUser?.id]);
+
+  useEffect(() => {
     if (selectedLead) {
       setDraft({ ...initialLead, ...selectedLead });
       setNote('');

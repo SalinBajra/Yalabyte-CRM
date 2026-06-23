@@ -47,3 +47,14 @@ VITE_SUPABASE_PUBLISHABLE_KEY=your-supabase-publishable-key
 Use the browser-safe publishable key, never the Supabase secret or service-role key. Redeploy after adding the variables.
 
 Supabase Auth stores user accounts server-side, so accounts survive browser-data clearing and work across devices. Clearing browser data signs the user out, but they can sign in again. Leads are shared in PostgreSQL and protected by row-level security for authenticated `@yalabyte.com` users.
+
+## Website lead capture
+
+The website's server-side `/api/contact` handler inserts every valid inquiry into the shared `leads` table with status `New` and source `Website`. Set these server-only variables on the website's Vercel project:
+
+```env
+SUPABASE_URL=https://your-project-ref.supabase.co
+SUPABASE_SERVICE_ROLE_KEY=your-supabase-service-role-key
+```
+
+Never expose the service-role key in frontend code or in a `VITE_` variable. Supabase Realtime delivers newly submitted website leads to an open CRM automatically.
