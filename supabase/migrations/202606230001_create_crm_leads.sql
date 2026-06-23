@@ -33,6 +33,8 @@ to authenticated
 using (lower(coalesce(auth.jwt() ->> 'email', '')) like '%@yalabyte.com');
 
 grant select, insert, update, delete on public.leads to authenticated;
+grant usage on schema public to service_role;
+grant select, insert, update, delete on public.leads to service_role;
 
 do $$
 begin
