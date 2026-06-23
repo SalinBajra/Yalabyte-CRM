@@ -1,7 +1,9 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
-import { fetchLeads, isSupabaseConfigured, saveLeads, supabase, toCRMUser } from './supabase';
+import { fetchLeads, saveLeads, supabase, toCRMUser } from './supabase';
 
 const STORAGE_KEY = 'yalabyte-crm-leads';
+const SESSION_KEY = 'yalabyte-crm-session';
+const ACCOUNTS_KEY = 'yalabyte-crm-accounts';
 const ALLOWED_EMAIL_DOMAIN = 'yalabyte.com';
 
 const stages = [
@@ -165,6 +167,27 @@ function isAllowedTeamEmail(email) {
   return email.trim().toLowerCase().endsWith(`@${ALLOWED_EMAIL_DOMAIN}`);
 }
 
+function readLocalAccounts() {
+  try {
+    const accounts = JSON.parse(window.localStorage.getItem(ACCOUNTS_KEY) || '[]');
+    return Array.isArray(accounts) ? accounts : [];
+  } catch {
+    return [];
+  }
+}
+
+function saveLocalSession(session) {
+  window.localStorage.setItem(SESSION_KEY, JSON.stringify(session));
+}
+
+function readLocalSession() {
+  try {
+    return JSON.parse(window.localStorage.getItem(SESSION_KEY) || 'null');
+  } catch {
+    return null;
+  }
+}
+
 function LoginGate({ onUnlock }) {
   const [mode, setMode] = useState('signin');
   const [name, setName] = useState('');
@@ -187,6 +210,36 @@ function LoginGate({ onUnlock }) {
 
     if (password.length < 8) {
       setError('Use at least 8 characters for the password.');
+      return;
+    }
+
+    if (!supabase) {
+      const accounts = readLocalAccounts();
+      if (mode === 'signup') {
+        if (!name.trim()) {
+          setError('Add your name to create the account.');
+          return;
+        }
+        if (accounts.some((account) => account.email === normalizedEmail)) {
+          setError('This email already has a CRM account.');
+          return;
+        }
+        const account = { id: createId('user'), name: name.trim(), email: normalizedEmail, password };
+        window.localStorage.setItem(ACCOUNTS_KEY, JSON.stringify([account, ...accounts]));
+        const session = { id: account.id, name: account.name, email: account.email };
+        saveLocalSession(session);
+        onUnlock(session);
+        return;
+      }
+
+      const account = accounts.find((item) => item.email === normalizedEmail && item.password === password);
+      if (!account) {
+        setError('No matching CRM account found.');
+        return;
+      }
+      const session = { id: account.id, name: account.name, email: account.email };
+      saveLocalSession(session);
+      onUnlock(session);
       return;
     }
 
@@ -316,6 +369,7 @@ export default function CRMApp() {
 
   useEffect(() => {
     if (!supabase) {
+      setCurrentUser(readLocalSession());
       setAuthReady(true);
       return undefined;
     }
@@ -332,7 +386,12 @@ export default function CRMApp() {
   }, []);
 
   useEffect(() => {
-    if (!currentUser || !supabase) {
+    if (!supabase) {
+      setDataReady(Boolean(currentUser));
+      return;
+    }
+
+    if (!currentUser) {
       setDataReady(false);
       return;
     }
@@ -519,23 +578,10 @@ export default function CRMApp() {
   };
 
   const signOut = async () => {
-    await supabase.auth.signOut();
+    if (supabase) await supabase.auth.signOut();
+    else window.localStorage.removeItem(SESSION_KEY);
     setCurrentUser(null);
   };
-
-  if (!isSupabaseConfigured) {
-    return (
-      <main className="login-shell flex min-h-screen items-center justify-center px-5 py-10">
-        <div className="w-full max-w-lg rounded-2xl bg-white p-8 shadow-soft">
-          <Brand />
-          <h1 className="mt-8 text-2xl font-bold tracking-tight">Connect the CRM database</h1>
-          <p className="mt-3 text-sm leading-6 text-slate-600">
-            Add <code>VITE_SUPABASE_URL</code> and <code>VITE_SUPABASE_PUBLISHABLE_KEY</code> in Vercel, then redeploy.
-          </p>
-        </div>
-      </main>
-    );
-  }
 
   if (!authReady) {
     return <main className="login-shell flex min-h-screen items-center justify-center text-sm font-semibold text-white">Opening secure CRM…</main>;
