@@ -146,11 +146,14 @@ function fieldClass() {
   return 'mt-1.5 w-full rounded-lg border border-slate-200 bg-white px-3.5 py-2.5 text-sm text-slate-950 outline-none transition placeholder:text-slate-400 hover:border-slate-300 focus:border-cyanbrand-500 focus:ring-4 focus:ring-cyanbrand-100';
 }
 
-function Stat({ label, value }) {
+function Stat({ label, value, accent = 'bg-cyanbrand-500' }) {
   return (
-    <div className="border-r border-slate-200 px-5 py-4 last:border-r-0">
-      <p className="text-[11px] font-bold uppercase tracking-[0.12em] text-slate-500">{label}</p>
-      <p className="mt-1.5 text-xl font-bold tracking-tight text-slate-950">{value}</p>
+    <div className="group border-r border-slate-200/80 px-5 py-4 transition hover:bg-white last:border-r-0">
+      <div className="flex items-center gap-2">
+        <span className={`h-2 w-2 rounded-full ${accent} shadow-[0_0_0_4px_rgba(148,163,184,0.1)]`} />
+        <p className="text-[10px] font-extrabold uppercase tracking-[0.15em] text-slate-500">{label}</p>
+      </div>
+      <p className="mt-2 text-xl font-extrabold tracking-tight text-slate-950">{value}</p>
     </div>
   );
 }
@@ -171,6 +174,22 @@ function Brand({ compact = false, inverted = false }) {
       </div>
     </div>
   );
+}
+
+function BellIcon() {
+  return <svg aria-hidden="true" className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth="1.8"><path strokeLinecap="round" strokeLinejoin="round" d="M14.857 17.082a23.9 23.9 0 0 0 5.454-1.31A8.97 8.97 0 0 1 18 9.75V9a6 6 0 0 0-12 0v.75a8.97 8.97 0 0 1-2.311 6.022 23.9 23.9 0 0 0 5.454 1.31m5.714 0a24.25 24.25 0 0 1-5.714 0m5.714 0a3 3 0 1 1-5.714 0" /></svg>;
+}
+
+function ExportIcon() {
+  return <svg aria-hidden="true" className="h-[18px] w-[18px]" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth="1.8"><path strokeLinecap="round" strokeLinejoin="round" d="M12 16V4m0 0L8 8m4-4 4 4M5 14v5h14v-5" /></svg>;
+}
+
+function ImportIcon() {
+  return <svg aria-hidden="true" className="h-[18px] w-[18px]" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth="1.8"><path strokeLinecap="round" strokeLinejoin="round" d="M12 4v12m0 0 4-4m-4 4-4-4M5 14v5h14v-5" /></svg>;
+}
+
+function SignOutIcon() {
+  return <svg aria-hidden="true" className="h-[18px] w-[18px]" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth="1.8"><path strokeLinecap="round" strokeLinejoin="round" d="M9 8V5a2 2 0 0 1 2-2h7a2 2 0 0 1 2 2v14a2 2 0 0 1-2 2h-7a2 2 0 0 1-2-2v-3m-5-4h11m0 0-3-3m3 3-3 3" /></svg>;
 }
 
 function ProgressRoadmap({ status, onChange }) {
@@ -792,32 +811,39 @@ export default function CRMApp() {
   const ownerOptions = Array.from(new Set([...teamMembers.map((member) => member.name), draft.owner].filter(Boolean)));
 
   return (
-    <main className="min-h-screen bg-slate-100 text-slate-950">
-      <div className="sticky top-0 z-20 border-b border-slate-200/80 bg-white/95 shadow-[0_1px_12px_rgba(15,23,42,0.04)] backdrop-blur">
-        <div className="mx-auto flex max-w-[1500px] flex-col gap-4 px-4 py-4 sm:px-6 lg:flex-row lg:items-center lg:justify-between">
+    <main className="crm-shell min-h-screen text-slate-950">
+      <div className="sticky top-0 z-20 border-b border-slate-200/80 bg-white/90 shadow-[0_1px_16px_rgba(15,23,42,0.05)] backdrop-blur-xl">
+        <div className="mx-auto flex max-w-[1500px] flex-col gap-4 px-4 py-3.5 sm:px-6 lg:flex-row lg:items-center lg:justify-between">
           <div className="flex flex-wrap items-center gap-5">
             <Brand compact />
-            <nav className="flex rounded-lg bg-slate-100 p-1" aria-label="CRM workspace">
-              <button className={`rounded-md px-3 py-2 text-sm font-bold ${activeWorkspace === 'leads' ? 'bg-white text-slate-950 shadow-sm' : 'text-slate-500'}`} onClick={() => setActiveWorkspace('leads')} type="button">Leads</button>
-              <button className={`rounded-md px-3 py-2 text-sm font-bold ${activeWorkspace === 'contacts' ? 'bg-white text-slate-950 shadow-sm' : 'text-slate-500'}`} onClick={() => setActiveWorkspace('contacts')} type="button">Contacts</button>
+            <nav className="flex rounded-xl border border-slate-200/80 bg-slate-100/80 p-1" aria-label="CRM workspace">
+              <button className={`rounded-lg px-3.5 py-2 text-sm font-bold transition ${activeWorkspace === 'leads' ? 'bg-white text-slate-950 shadow-sm' : 'text-slate-500 hover:text-slate-800'}`} onClick={() => setActiveWorkspace('leads')} type="button">Leads</button>
+              <button className={`rounded-lg px-3.5 py-2 text-sm font-bold transition ${activeWorkspace === 'contacts' ? 'bg-white text-slate-950 shadow-sm' : 'text-slate-500 hover:text-slate-800'}`} onClick={() => setActiveWorkspace('contacts')} type="button">Contacts</button>
             </nav>
           </div>
           <div className="flex flex-wrap items-center gap-2">
-            <div className="mr-1 hidden text-right sm:block">
+            <div className="mr-1 hidden items-center gap-2.5 sm:flex">
+              <span className="flex h-9 w-9 items-center justify-center rounded-full bg-navy-950 text-xs font-extrabold uppercase text-cyanbrand-400">
+                {currentUser.name?.split(' ').map((part) => part[0]).slice(0, 2).join('') || 'YB'}
+              </span>
+              <div className="text-right">
               <p className="text-sm font-semibold text-slate-900">{currentUser.name}</p>
               <p className="text-xs text-slate-500">
                 {currentUser.email} · {syncState === 'syncing' ? 'Saving…' : syncState === 'error' ? 'Sync issue' : 'Synced'}
               </p>
+              </div>
             </div>
             <div className="relative">
               <button
-                className="relative rounded-md border border-slate-200 bg-white px-3 py-2 text-sm font-semibold hover:bg-slate-50"
+                className={`relative flex h-10 w-10 items-center justify-center rounded-xl border transition ${notificationsOpen ? 'border-cyanbrand-500 bg-cyan-50 text-cyan-800' : 'border-slate-200 bg-white text-slate-600 hover:border-slate-300 hover:bg-slate-50'}`}
                 onClick={() => setNotificationsOpen((open) => !open)}
                 type="button"
+                aria-label="Open notifications"
+                title="Notifications"
               >
-                Notifications
+                <BellIcon />
                 {notifications.length ? (
-                  <span className="ml-2 inline-flex min-w-5 items-center justify-center rounded-full bg-rose-500 px-1.5 py-0.5 text-[10px] font-extrabold text-white">
+                  <span className="absolute -right-1.5 -top-1.5 inline-flex min-w-[18px] items-center justify-center rounded-full border-2 border-white bg-rose-500 px-1 py-0.5 text-[9px] font-extrabold text-white">
                     {notifications.length}
                   </span>
                 ) : null}
@@ -844,30 +870,30 @@ export default function CRMApp() {
                 </div>
               ) : null}
             </div>
-            <button className="rounded-md border border-slate-200 bg-white px-3 py-2 text-sm font-semibold hover:bg-slate-50" onClick={exportLeads}>
-              Export
+            <button className="flex h-10 w-10 items-center justify-center rounded-xl border border-slate-200 bg-white text-slate-600 transition hover:border-slate-300 hover:bg-slate-50" onClick={exportLeads} aria-label="Export leads" title="Export leads">
+              <ExportIcon />
             </button>
-            <button className="rounded-md border border-slate-200 bg-white px-3 py-2 text-sm font-semibold hover:bg-slate-50" onClick={() => importInputRef.current?.click()}>
-              Import
+            <button className="flex h-10 w-10 items-center justify-center rounded-xl border border-slate-200 bg-white text-slate-600 transition hover:border-slate-300 hover:bg-slate-50" onClick={() => importInputRef.current?.click()} aria-label="Import leads" title="Import leads">
+              <ImportIcon />
             </button>
             <input ref={importInputRef} className="hidden" type="file" accept="application/json" onChange={importLeads} />
             <button
-              className="rounded-md bg-cyanbrand-500 px-3 py-2 text-sm font-bold text-slate-950 hover:bg-cyanbrand-400 disabled:cursor-not-allowed disabled:opacity-60"
+              className="rounded-xl bg-cyanbrand-500 px-4 py-2.5 text-sm font-extrabold text-navy-950 shadow-sm transition hover:-translate-y-0.5 hover:bg-cyanbrand-400 hover:shadow-md disabled:cursor-not-allowed disabled:opacity-60"
               disabled={isCreatingLead}
               onClick={createLead}
             >
               {isCreatingLead ? 'Drafting…' : 'New Lead'}
             </button>
-            <button className="rounded-md border border-slate-200 bg-white px-3 py-2 text-sm font-semibold hover:bg-slate-50" onClick={signOut}>
-              Sign Out
+            <button className="flex h-10 w-10 items-center justify-center rounded-xl border border-slate-200 bg-white text-slate-600 transition hover:border-rose-200 hover:bg-rose-50 hover:text-rose-600" onClick={signOut} aria-label="Sign out" title="Sign out">
+              <SignOutIcon />
             </button>
           </div>
         </div>
-        {activeWorkspace === 'leads' ? <div className="mx-auto grid max-w-[1500px] grid-cols-2 overflow-hidden border-t border-slate-200 sm:grid-cols-4">
-          <Stat label="Total leads" value={stats.total} />
-          <Stat label="Open leads" value={stats.open} />
-          <Stat label="Pipeline value" value={money(stats.totalValue)} />
-          <Stat label="Due now" value={stats.dueToday} />
+        {activeWorkspace === 'leads' ? <div className="mx-auto grid max-w-[1500px] grid-cols-2 overflow-hidden border-t border-slate-200 bg-slate-50/70 sm:grid-cols-4">
+          <Stat label="Total leads" value={stats.total} accent="bg-cyanbrand-500" />
+          <Stat label="Open leads" value={stats.open} accent="bg-sky-500" />
+          <Stat label="Pipeline value" value={money(stats.totalValue)} accent="bg-emerald-500" />
+          <Stat label="Due now" value={stats.dueToday} accent={stats.dueToday ? 'bg-rose-500' : 'bg-slate-300'} />
         </div> : null}
       </div>
 
@@ -881,9 +907,16 @@ export default function CRMApp() {
         </div>
       ) : null}
 
-      <div className="mx-auto grid max-w-[1500px] gap-4 px-4 py-4 sm:px-6 xl:grid-cols-[360px_1fr]">
-        <aside className="overflow-hidden rounded-xl border border-slate-200 bg-white shadow-card">
-          <div className="border-b border-slate-200 p-3">
+      <div className="mx-auto grid max-w-[1500px] gap-5 px-4 py-5 sm:px-6 xl:grid-cols-[360px_1fr]">
+        <aside className="overflow-hidden rounded-2xl border border-slate-200/90 bg-white shadow-card">
+          <div className="border-b border-slate-200 p-4">
+            <div className="mb-3 flex items-center justify-between">
+              <div>
+                <p className="text-[10px] font-extrabold uppercase tracking-[0.16em] text-cyan-700">Pipeline</p>
+                <h2 className="mt-0.5 text-lg font-extrabold tracking-tight">Lead opportunities</h2>
+              </div>
+              <span className="rounded-full bg-slate-100 px-2.5 py-1 text-xs font-bold text-slate-600">{filteredLeads.length}</span>
+            </div>
             <input
               className="w-full rounded-lg border border-slate-200 px-3.5 py-2.5 text-sm outline-none transition placeholder:text-slate-400 focus:border-cyanbrand-500 focus:ring-4 focus:ring-cyanbrand-100"
               placeholder="Search leads, companies, owners…"
@@ -914,7 +947,7 @@ export default function CRMApp() {
               return (
                 <button
                   key={lead.id}
-                  className={`block w-full border-b border-slate-100 p-4 text-left transition hover:bg-slate-50 ${selectedLead?.id === lead.id ? 'bg-cyan-50' : 'bg-white'}`}
+                  className={`relative block w-full border-b border-slate-100 p-4 text-left transition hover:bg-slate-50 ${selectedLead?.id === lead.id ? 'border-l-4 border-l-cyanbrand-500 bg-cyan-50/70 pl-3' : 'border-l-4 border-l-transparent bg-white pl-3'}`}
                   onClick={() => {
                     setIsCreatingLead(false);
                     setSelectedId(lead.id);
@@ -944,8 +977,8 @@ export default function CRMApp() {
           </div>
         </aside>
 
-        <section className="grid gap-4 lg:grid-cols-[1fr_360px]">
-          <form className="rounded-xl border border-slate-200 bg-white p-4 shadow-card sm:p-6" onSubmit={saveDraft}>
+        <section className="grid gap-5 lg:grid-cols-[1fr_360px]">
+          <form className="rounded-2xl border border-slate-200/90 bg-white p-4 shadow-card sm:p-6" onSubmit={saveDraft}>
             {selectedLead || isCreatingLead ? (
               <>
                 <div className="flex flex-col gap-3 border-b border-slate-200 pb-4 sm:flex-row sm:items-start sm:justify-between">
@@ -1065,7 +1098,7 @@ export default function CRMApp() {
             )}
           </form>
 
-          <aside className="rounded-xl border border-slate-200 bg-white p-5 shadow-card">
+          <aside className="rounded-2xl border border-slate-200/90 bg-white p-5 shadow-card">
             <p className="text-[11px] font-bold uppercase tracking-[0.14em] text-cyan-700">Lead roadmap</p>
             <h3 className="mt-1 text-lg font-bold tracking-tight">Progress</h3>
             <ProgressRoadmap status={draft.status} onChange={changeStatus} />

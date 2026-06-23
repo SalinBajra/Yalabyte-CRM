@@ -155,8 +155,8 @@ export default function ContactsView({ currentUser, teamMembers }) {
   };
 
   return (
-    <div className="mx-auto grid max-w-[1500px] gap-4 px-4 py-5 sm:px-6 xl:grid-cols-[340px_1fr]">
-      <aside className="overflow-hidden rounded-xl border border-slate-200 bg-white shadow-card">
+    <div className="mx-auto grid max-w-[1500px] gap-5 px-4 py-5 sm:px-6 xl:grid-cols-[340px_1fr]">
+      <aside className="overflow-hidden rounded-2xl border border-slate-200/90 bg-white shadow-card">
         <div className="border-b border-slate-100 p-4">
           <div className="flex items-center justify-between gap-3">
             <div><p className="text-xs font-bold uppercase tracking-[0.14em] text-cyan-700">Prospects</p><h2 className="mt-1 text-xl font-bold">Contacts</h2></div>
@@ -181,7 +181,7 @@ export default function ContactsView({ currentUser, teamMembers }) {
       </aside>
 
       <section className="space-y-4">
-        <form className="rounded-xl border border-slate-200 bg-white p-5 shadow-card sm:p-6" onSubmit={saveContact}>
+        <form className="rounded-2xl border border-slate-200/90 bg-white p-5 shadow-card sm:p-6" onSubmit={saveContact}>
           <div className="flex flex-col gap-3 border-b border-slate-100 pb-4 sm:flex-row sm:items-center sm:justify-between">
             <div>
               <p className="text-xs font-bold uppercase tracking-[0.14em] text-cyan-700">{isCreating ? 'Unsaved prospect' : 'Contact profile'}</p>
@@ -205,7 +205,7 @@ export default function ContactsView({ currentUser, teamMembers }) {
 
         {selectedContact ? (
           <div className="grid gap-4 lg:grid-cols-[1fr_0.9fr]">
-            <div className="rounded-xl border border-slate-200 bg-white p-5 shadow-card">
+            <div className="rounded-2xl border border-slate-200/90 bg-white p-5 shadow-card">
               <p className="text-xs font-bold uppercase tracking-[0.14em] text-cyan-700">Team handoff</p><h3 className="mt-1 text-lg font-bold">Tag teammate & assign task</h3>
               <div className="mt-4 grid gap-3 sm:grid-cols-2">
                 <label className="text-sm font-semibold">Team member<select className={inputClass} value={taskDraft.assigneeId} onChange={(event) => setTaskDraft((current) => ({ ...current, assigneeId: event.target.value }))}><option value="">Select teammate</option>{teamMembers.map((member) => <option key={member.user_id} value={member.user_id}>{member.name} · {member.email}</option>)}</select></label>
@@ -215,7 +215,7 @@ export default function ContactsView({ currentUser, teamMembers }) {
               </div>
               <button className="mt-3 w-full rounded-lg bg-cyanbrand-500 px-4 py-3 text-sm font-extrabold text-navy-950" disabled={busy} onClick={assignTask} type="button">Assign & email teammate</button>
             </div>
-            <div className="rounded-xl border border-slate-200 bg-white p-5 shadow-card"><h3 className="text-lg font-bold">Contact tasks</h3><div className="mt-4 space-y-3">{tasks.map((task) => <button className={`block w-full rounded-lg border p-3 text-left ${task.status === 'done' ? 'border-emerald-100 bg-emerald-50' : 'border-slate-200 bg-white'}`} key={task.id} onClick={() => toggleTask(task)}><p className={`text-sm font-bold ${task.status === 'done' ? 'line-through text-slate-500' : 'text-slate-900'}`}>{task.title}</p><p className="mt-1 text-xs text-slate-500">{task.assigned_to_name} · {readableDate(task.due_date)}</p></button>)}{!tasks.length ? <p className="text-sm text-slate-500">No tasks assigned for this contact.</p> : null}</div></div>
+            <div className="rounded-2xl border border-slate-200/90 bg-white p-5 shadow-card"><h3 className="text-lg font-bold">Contact tasks</h3><div className="mt-4 space-y-3">{tasks.map((task) => <button className={`block w-full rounded-lg border p-3 text-left ${task.status === 'done' ? 'border-emerald-100 bg-emerald-50' : 'border-slate-200 bg-white'}`} key={task.id} onClick={() => toggleTask(task)}><p className={`text-sm font-bold ${task.status === 'done' ? 'line-through text-slate-500' : 'text-slate-900'}`}>{task.title}</p><p className="mt-1 text-xs text-slate-500">{task.assigned_to_name} · {readableDate(task.due_date)}</p></button>)}{!tasks.length ? <p className="text-sm text-slate-500">No tasks assigned for this contact.</p> : null}</div></div>
           </div>
         ) : null}
       </section>

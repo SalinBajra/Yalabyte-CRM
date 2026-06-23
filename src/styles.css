@@ -22,6 +22,28 @@ body {
     #06111f;
 }
 
+.crm-shell {
+  background:
+    radial-gradient(circle at 8% 8%, rgba(19, 200, 222, 0.07), transparent 26rem),
+    radial-gradient(circle at 92% 14%, rgba(14, 165, 233, 0.05), transparent 24rem),
+    #f4f7fb;
+}
+
+* {
+  scrollbar-width: thin;
+  scrollbar-color: #cbd5e1 transparent;
+}
+
+*::-webkit-scrollbar {
+  height: 7px;
+  width: 7px;
+}
+
+*::-webkit-scrollbar-thumb {
+  background: #cbd5e1;
+  border-radius: 999px;
+}
+
 button {
   cursor: pointer;
 }
