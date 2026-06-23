@@ -175,6 +175,30 @@ function saveAccounts(accounts) {
   window.localStorage.setItem(ACCOUNTS_KEY, JSON.stringify(accounts));
 }
 
+function saveSession(session) {
+  window.localStorage.setItem(SESSION_KEY, JSON.stringify(session));
+  window.sessionStorage.removeItem(SESSION_KEY);
+}
+
+function readSession() {
+  try {
+    const persistentSession = window.localStorage.getItem(SESSION_KEY);
+    const legacySession = window.sessionStorage.getItem(SESSION_KEY);
+    const raw = persistentSession || legacySession;
+    if (!raw) return null;
+
+    const session = JSON.parse(raw);
+    if (!session?.id || !session?.email) return null;
+
+    if (!persistentSession) saveSession(session);
+    return session;
+  } catch {
+    window.localStorage.removeItem(SESSION_KEY);
+    window.sessionStorage.removeItem(SESSION_KEY);
+    return null;
+  }
+}
+
 function isAllowedTeamEmail(email) {
   return email.trim().toLowerCase().endsWith(`@${ALLOWED_EMAIL_DOMAIN}`);
 }
@@ -221,7 +245,7 @@ function LoginGate({ onUnlock }) {
       };
       saveAccounts([account, ...accounts]);
       const session = { id: account.id, name: account.name, email: account.email };
-      window.sessionStorage.setItem(SESSION_KEY, JSON.stringify(session));
+      saveSession(session);
       onUnlock(session);
       return;
     }
@@ -233,7 +257,7 @@ function LoginGate({ onUnlock }) {
     }
 
     const session = { id: account.id, name: account.name, email: account.email };
-    window.sessionStorage.setItem(SESSION_KEY, JSON.stringify(session));
+    saveSession(session);
     onUnlock(session);
   };
 
@@ -306,13 +330,7 @@ function LoginGate({ onUnlock }) {
 }
 
 export default function CRMApp() {
-  const [currentUser, setCurrentUser] = useState(() => {
-    try {
-      return JSON.parse(window.sessionStorage.getItem(SESSION_KEY) || 'null');
-    } catch {
-      return null;
-    }
-  });
+  const [currentUser, setCurrentUser] = useState(readSession);
   const [leads, setLeads] = useState(readLeads);
   const [selectedId, setSelectedId] = useState(() => readLeads()[0]?.id || '');
   const [draft, setDraft] = useState(initialLead);
@@ -441,6 +459,7 @@ export default function CRMApp() {
   };
 
   const signOut = () => {
+    window.localStorage.removeItem(SESSION_KEY);
     window.sessionStorage.removeItem(SESSION_KEY);
     setCurrentUser(null);
   };
