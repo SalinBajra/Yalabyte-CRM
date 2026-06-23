@@ -5,6 +5,7 @@ import {
   fetchDeletionNotifications,
   fetchLeads,
   fetchTeamMembers,
+  notifyCliqNewLead,
   registerTeamMember,
   saveLeads,
   supabase,
@@ -663,7 +664,7 @@ export default function CRMApp() {
     setDraft((current) => ({ ...current, [name]: value }));
   };
 
-  const saveDraft = (event) => {
+  const saveDraft = async (event) => {
     event.preventDefault();
     if (isCreatingLead) {
       const now = new Date().toISOString();
@@ -677,9 +678,21 @@ export default function CRMApp() {
         updatedAt: now,
         activities: [{ id: createId('activity'), type: 'Created', text: 'Lead created manually.', at: now }]
       };
-      setLeads((current) => [lead, ...current]);
-      setSelectedId(lead.id);
-      setIsCreatingLead(false);
+      setSyncState('syncing');
+      setDataError('');
+      try {
+        if (supabase) await saveLeads([lead]);
+        setLeads((current) => [lead, ...current]);
+        setSelectedId(lead.id);
+        setIsCreatingLead(false);
+        setSyncState('saved');
+        if (supabase) notifyCliqNewLead(lead).catch(() => {
+          setDataError('Lead saved, but the Cliq team notification could not be delivered.');
+        });
+      } catch (error) {
+        setSyncState('error');
+        setDataError(error.message || 'Unable to create this lead.');
+      }
       return;
     }
     if (!selectedLead) return;

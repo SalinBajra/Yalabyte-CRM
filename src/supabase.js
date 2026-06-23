@@ -151,3 +151,27 @@ export async function setContactTaskStatus(taskId, status) {
     .eq('id', taskId);
   if (error) throw error;
 }
+
+export async function notifyCliqNewLead(lead) {
+  const { data } = await supabase.auth.getSession();
+  const response = await fetch('https://www.yalabyte.com/api/crm-event', {
+    method: 'POST',
+    headers: {
+      'Content-Type': 'application/json',
+      Authorization: `Bearer ${data.session?.access_token || ''}`
+    },
+    body: JSON.stringify({
+      type: 'new_lead',
+      lead: {
+        name: lead.name,
+        company: lead.company,
+        email: lead.email,
+        phone: lead.phone,
+        service: lead.service,
+        source: lead.source,
+        owner: lead.owner
+      }
+    })
+  });
+  if (!response.ok) throw new Error('Cliq notification could not be delivered.');
+}
