@@ -1,5 +1,6 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
 import ContactsView from './ContactsView';
+import ProfileModal from './ProfileModal';
 import {
   deleteLeadWithAudit,
   fetchDeletionNotifications,
@@ -488,6 +489,7 @@ export default function CRMApp() {
   const [deleting, setDeleting] = useState(false);
   const [isCreatingLead, setIsCreatingLead] = useState(false);
   const [activeWorkspace, setActiveWorkspace] = useState('leads');
+  const [profileOpen, setProfileOpen] = useState(false);
   const importInputRef = useRef(null);
 
   const selectedLead = isCreatingLead ? null : leads.find((lead) => lead.id === selectedId) || leads[0] || null;
@@ -822,6 +824,8 @@ export default function CRMApp() {
 
   const activeTone = stages.find((stage) => stage.id === draft.status)?.tone || stages[0].tone;
   const ownerOptions = Array.from(new Set([...teamMembers.map((member) => member.name), draft.owner].filter(Boolean)));
+  const currentProfile = teamMembers.find((member) => member.user_id === currentUser.id);
+  const profileStatusTone = currentProfile?.status === 'busy' ? 'bg-rose-500' : currentProfile?.status === 'away' ? 'bg-amber-400' : currentProfile?.status === 'offline' ? 'bg-slate-400' : 'bg-emerald-500';
 
   return (
     <main className="crm-shell min-h-screen text-slate-950">
@@ -835,17 +839,23 @@ export default function CRMApp() {
             </nav>
           </div>
           <div className="flex flex-wrap items-center gap-2">
-            <div className="mr-1 hidden items-center gap-2.5 sm:flex">
-              <span className="flex h-9 w-9 items-center justify-center rounded-full bg-navy-950 text-xs font-extrabold uppercase text-cyanbrand-400">
-                {currentUser.name?.split(' ').map((part) => part[0]).slice(0, 2).join('') || 'YB'}
+            <button className="mr-1 hidden items-center gap-2.5 rounded-xl px-2 py-1.5 text-left transition hover:bg-slate-100 sm:flex" onClick={() => setProfileOpen(true)} type="button" title="Update profile">
+              <span className="relative h-10 w-10 shrink-0">
+                <span className="flex h-10 w-10 items-center justify-center overflow-hidden rounded-full bg-navy-950 text-xs font-extrabold uppercase text-cyanbrand-400">
+                  {currentProfile?.avatar_url ? <img className="h-full w-full object-cover" src={currentProfile.avatar_url} alt="" /> : currentUser.name?.split(' ').map((part) => part[0]).slice(0, 2).join('') || 'YB'}
+                </span>
+                <span className={`absolute bottom-0 right-0 h-3 w-3 rounded-full border-2 border-white ${profileStatusTone}`} />
               </span>
               <div className="text-right">
               <p className="text-sm font-semibold text-slate-900">{currentUser.name}</p>
               <p className="text-xs text-slate-500">
-                {currentUser.email} · {syncState === 'syncing' ? 'Saving…' : syncState === 'error' ? 'Sync issue' : 'Synced'}
+                {currentProfile?.status ? `${currentProfile.status[0].toUpperCase()}${currentProfile.status.slice(1)}` : 'Available'} · {syncState === 'syncing' ? 'Saving…' : syncState === 'error' ? 'Sync issue' : 'Synced'}
               </p>
               </div>
-            </div>
+            </button>
+            <button className="flex h-10 w-10 items-center justify-center overflow-hidden rounded-full bg-navy-950 text-xs font-extrabold uppercase text-cyanbrand-400 sm:hidden" onClick={() => setProfileOpen(true)} type="button" aria-label="Update profile">
+              {currentProfile?.avatar_url ? <img className="h-full w-full object-cover" src={currentProfile.avatar_url} alt="" /> : currentUser.name?.split(' ').map((part) => part[0]).slice(0, 2).join('') || 'YB'}
+            </button>
             <div className="relative">
               <button
                 className={`relative flex h-10 w-10 items-center justify-center rounded-xl border transition ${notificationsOpen ? 'border-cyanbrand-500 bg-cyan-50 text-cyan-800' : 'border-slate-200 bg-white text-slate-600 hover:border-slate-300 hover:bg-slate-50'}`}
@@ -1148,6 +1158,20 @@ export default function CRMApp() {
       </div>
         </>
       )}
+      {profileOpen ? (
+        <ProfileModal
+          currentUser={currentUser}
+          profile={currentProfile}
+          onClose={() => setProfileOpen(false)}
+          onSaved={(updated) => {
+            setTeamMembers((current) => current.some((member) => member.user_id === updated.user_id)
+              ? current.map((member) => member.user_id === updated.user_id ? updated : member)
+              : [...current, updated]);
+            setCurrentUser((current) => ({ ...current, name: updated.name }));
+            setProfileOpen(false);
+          }}
+        />
+      ) : null}
     </main>
   );
 }

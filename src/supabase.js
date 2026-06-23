@@ -57,10 +57,44 @@ export async function registerTeamMember(user) {
 export async function fetchTeamMembers() {
   const { data, error } = await supabase
     .from('team_members')
-    .select('user_id,name,email,last_seen_at')
+    .select('*')
     .order('name');
   if (error) throw error;
   return data || [];
+}
+
+export async function updateTeamProfile(user, profile, avatarFile) {
+  let avatarUrl = profile.avatar_url || '';
+  if (avatarFile) {
+    const extension = avatarFile.name.split('.').pop()?.toLowerCase() || 'jpg';
+    const objectPath = `${user.id}/avatar-${Date.now()}.${extension}`;
+    const { error: uploadError } = await supabase.storage
+      .from('team-avatars')
+      .upload(objectPath, avatarFile, { cacheControl: '3600', upsert: false });
+    if (uploadError) throw uploadError;
+    const { data } = supabase.storage.from('team-avatars').getPublicUrl(objectPath);
+    avatarUrl = data.publicUrl;
+  }
+
+  const changes = {
+    name: profile.name.trim(),
+    phone: profile.phone.trim(),
+    bio: profile.bio.trim(),
+    status: profile.status,
+    avatar_url: avatarUrl,
+    last_seen_at: new Date().toISOString()
+  };
+  const { data, error } = await supabase
+    .from('team_members')
+    .update(changes)
+    .eq('user_id', user.id)
+    .select()
+    .single();
+  if (error) throw error;
+
+  const { error: authError } = await supabase.auth.updateUser({ data: { name: changes.name } });
+  if (authError) throw authError;
+  return data;
 }
 
 export async function fetchDeletionNotifications() {
