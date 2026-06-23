@@ -69,21 +69,19 @@ POST http://localhost:8000/api/contact
 
 ## CRM
 
-The team CRM is available at:
+The team CRM now lives in its own app folder:
 
-```text
-/crm
+```bash
+cd crm
+npm install
+npm run dev
 ```
 
-For production, point a subdomain such as `crm.yalabyte.com` to the same deployed frontend. The app opens the CRM automatically on hosts that start with `crm.`, and `/crm` also works on the main domain or localhost.
+The CRM dev server runs at `http://localhost:5174`.
 
-Set a team passcode for the browser-based CRM gate:
+For production, deploy the `crm` folder as a separate frontend project and point `crm.yalabyte.com` to that deployment. Keep the public marketing website deployed from `frontend`.
 
-```env
-VITE_CRM_PASSCODE=choose-a-private-team-passcode
-```
-
-The first CRM version stores leads in browser local storage and supports JSON import/export. It is useful for team workflow testing and small internal use. For a shared production CRM across multiple team members, connect `/api/contact` and `/crm` to a database such as Supabase/PostgreSQL so website form submissions appear for every logged-in team member.
+The first CRM version has a browser-based account gate that only accepts `@yalabyte.com` email addresses, stores leads in browser local storage, and supports JSON import/export. This is useful for team workflow testing. For a shared production CRM across multiple team members, connect the CRM and `/api/contact` to a database/auth provider such as Supabase Auth with PostgreSQL or Zoho SSO.
 
 ## Environment
 

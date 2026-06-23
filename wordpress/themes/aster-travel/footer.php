@@ -1,0 +1,1 @@
+<footer class="site-footer"><div class="footer-inner wrap"><strong>ASTER.</strong><span>Thoughtful journeys, made personal.</span><span>&copy; <?php echo esc_html(date('Y')); ?> Aster Travel</span></div></footer><?php wp_footer(); ?></body></html>

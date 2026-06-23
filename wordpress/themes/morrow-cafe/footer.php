@@ -1,0 +1,1 @@
+<footer class="site-footer"><div class="footer-inner wrap"><strong>Morrow Coffee</strong><span>18 Market Lane · Open daily</span><span>&copy; <?php echo esc_html(date('Y')); ?> Morrow</span></div></footer><?php wp_footer(); ?></body></html>

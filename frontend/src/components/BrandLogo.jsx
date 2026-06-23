@@ -1,12 +1,12 @@
-export default function BrandLogo({ variant = 'dark' }) {
-  const isDark = variant === 'dark';
-
+export default function BrandLogo() {
   return (
-    <span className="flex items-center gap-3">
-      <span className={`grid h-11 w-11 place-items-center rounded-md ${isDark ? 'bg-white' : 'bg-navy-950'} ring-1 ${isDark ? 'ring-white/20' : 'ring-slate-200'}`}>
-        <img src="/images/yalabyte-logo-mark.png" alt="YalaByte logo" className="h-9 w-9 object-contain" />
-      </span>
-      <span className={`text-xl font-semibold tracking-normal ${isDark ? 'text-white' : 'text-navy-950'}`}>YalaByte</span>
+    <span className="inline-grid h-12 w-14 place-items-center" aria-label="YalaByte">
+      <img
+        src="/images/yalabyte-yb-logo.png"
+        alt=""
+        className="h-full w-full object-contain [filter:drop-shadow(0_0_2px_rgba(107,234,255,0.65))_drop-shadow(0_0_10px_rgba(19,200,222,0.22))]"
+        aria-hidden="true"
+      />
     </span>
   );
 }

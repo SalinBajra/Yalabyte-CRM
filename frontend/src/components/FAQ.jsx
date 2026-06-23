@@ -7,8 +7,8 @@ export default function FAQ() {
       <div className="mx-auto max-w-5xl">
         <SectionHeader
           eyebrow="FAQs"
-          title="Questions businesses usually ask before starting"
-          text="Clear answers before the first call help keep the project practical, scoped, and easier to move forward."
+          title="Useful answers before we start"
+          text="The basics on scope, hosting, custom features, and support after launch."
         />
         <div className="mt-12 grid gap-4">
           {faqs.map((item) => (

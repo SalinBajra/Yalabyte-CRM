@@ -1,0 +1,5 @@
+@media (max-width: 800px) {
+  .nav { flex-wrap: wrap; padding: 14px 0; gap: 14px; }
+  .nav .menu { display: flex; order: 3; width: 100%; gap: 20px; overflow-x: auto; border-top: 1px solid rgba(255,255,255,.12); padding-top: 12px; }
+  .nav .menu li { flex: 0 0 auto; }
+}

@@ -1,7 +1,9 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
 
 const STORAGE_KEY = 'yalabyte-crm-leads';
-const SESSION_KEY = 'yalabyte-crm-unlocked';
+const SESSION_KEY = 'yalabyte-crm-session';
+const ACCOUNTS_KEY = 'yalabyte-crm-accounts';
+const ALLOWED_EMAIL_DOMAIN = 'yalabyte.com';
 
 const stages = [
   { id: 'new', label: 'New', tone: 'bg-sky-50 text-sky-800 border-sky-100' },
@@ -142,19 +144,79 @@ function Stat({ label, value }) {
   );
 }
 
+function readAccounts() {
+  try {
+    const accounts = JSON.parse(window.localStorage.getItem(ACCOUNTS_KEY) || '[]');
+    return Array.isArray(accounts) ? accounts : [];
+  } catch {
+    return [];
+  }
+}
+
+function saveAccounts(accounts) {
+  window.localStorage.setItem(ACCOUNTS_KEY, JSON.stringify(accounts));
+}
+
+function isAllowedTeamEmail(email) {
+  return email.trim().toLowerCase().endsWith(`@${ALLOWED_EMAIL_DOMAIN}`);
+}
+
 function LoginGate({ onUnlock }) {
-  const [passcode, setPasscode] = useState('');
+  const [mode, setMode] = useState('signin');
+  const [name, setName] = useState('');
+  const [email, setEmail] = useState('');
+  const [password, setPassword] = useState('');
   const [error, setError] = useState('');
-  const expectedPasscode = import.meta.env.VITE_CRM_PASSCODE || 'yalabyte-team';
 
   const handleSubmit = (event) => {
     event.preventDefault();
-    if (passcode !== expectedPasscode) {
-      setError('Invalid CRM passcode.');
+    const normalizedEmail = email.trim().toLowerCase();
+
+    if (!isAllowedTeamEmail(normalizedEmail)) {
+      setError('Use your YalaByte email address to access the CRM.');
       return;
     }
-    window.sessionStorage.setItem(SESSION_KEY, 'true');
-    onUnlock();
+
+    if (password.length < 8) {
+      setError('Use at least 8 characters for the password.');
+      return;
+    }
+
+    const accounts = readAccounts();
+
+    if (mode === 'signup') {
+      if (!name.trim()) {
+        setError('Add your name to create the account.');
+        return;
+      }
+      if (accounts.some((account) => account.email === normalizedEmail)) {
+        setError('This email already has a CRM account.');
+        return;
+      }
+
+      const account = {
+        id: createId('user'),
+        name: name.trim(),
+        email: normalizedEmail,
+        password,
+        createdAt: new Date().toISOString()
+      };
+      saveAccounts([account, ...accounts]);
+      const session = { id: account.id, name: account.name, email: account.email };
+      window.sessionStorage.setItem(SESSION_KEY, JSON.stringify(session));
+      onUnlock(session);
+      return;
+    }
+
+    const account = accounts.find((item) => item.email === normalizedEmail && item.password === password);
+    if (!account) {
+      setError('No matching CRM account found.');
+      return;
+    }
+
+    const session = { id: account.id, name: account.name, email: account.email };
+    window.sessionStorage.setItem(SESSION_KEY, JSON.stringify(session));
+    onUnlock(session);
   };
 
   return (
@@ -163,20 +225,60 @@ function LoginGate({ onUnlock }) {
         <form className="w-full rounded-lg border border-white/10 bg-white p-6 text-slate-950 shadow-soft" onSubmit={handleSubmit}>
           <img className="h-10 w-auto" src="/images/yalabyte-logo-transparent.png" alt="YalaByte" />
           <h1 className="mt-8 text-2xl font-semibold tracking-normal">Team CRM</h1>
-          <p className="mt-2 text-sm leading-6 text-slate-600">Use your team passcode to open the YalaByte lead workspace.</p>
+          <p className="mt-2 text-sm leading-6 text-slate-600">Sign in with a YalaByte domain email to open the lead workspace.</p>
+          <div className="mt-6 grid grid-cols-2 rounded-md bg-slate-100 p-1">
+            <button
+              className={`rounded px-3 py-2 text-sm font-bold ${mode === 'signin' ? 'bg-white text-slate-950 shadow-sm' : 'text-slate-500'}`}
+              onClick={() => {
+                setMode('signin');
+                setError('');
+              }}
+              type="button"
+            >
+              Sign in
+            </button>
+            <button
+              className={`rounded px-3 py-2 text-sm font-bold ${mode === 'signup' ? 'bg-white text-slate-950 shadow-sm' : 'text-slate-500'}`}
+              onClick={() => {
+                setMode('signup');
+                setError('');
+              }}
+              type="button"
+            >
+              Create
+            </button>
+          </div>
+          {mode === 'signup' ? (
+            <label className="mt-5 block text-sm font-semibold text-slate-900">
+              Name
+              <input className={fieldClass()} value={name} onChange={(event) => setName(event.target.value)} autoComplete="name" />
+            </label>
+          ) : null}
           <label className="mt-6 block text-sm font-semibold text-slate-900">
-            Passcode
+            YalaByte email
+            <input
+              className={fieldClass()}
+              type="email"
+              value={email}
+              onChange={(event) => setEmail(event.target.value)}
+              placeholder="name@yalabyte.com"
+              autoComplete="email"
+              autoFocus
+            />
+          </label>
+          <label className="mt-5 block text-sm font-semibold text-slate-900">
+            Password
             <input
               className={fieldClass()}
               type="password"
-              value={passcode}
-              onChange={(event) => setPasscode(event.target.value)}
-              autoFocus
+              value={password}
+              onChange={(event) => setPassword(event.target.value)}
+              autoComplete={mode === 'signup' ? 'new-password' : 'current-password'}
             />
           </label>
           {error ? <p className="mt-4 rounded-md bg-red-50 px-3 py-2 text-sm font-medium text-red-700">{error}</p> : null}
           <button className="mt-5 w-full rounded-md bg-cyanbrand-500 px-4 py-3 text-sm font-bold text-slate-950 transition hover:bg-cyanbrand-400">
-            Open CRM
+            {mode === 'signup' ? 'Create Account' : 'Sign In'}
           </button>
         </form>
       </div>
@@ -184,8 +286,14 @@ function LoginGate({ onUnlock }) {
   );
 }
 
-export default function CRMPage() {
-  const [isUnlocked, setIsUnlocked] = useState(() => window.sessionStorage.getItem(SESSION_KEY) === 'true');
+export default function CRMApp() {
+  const [currentUser, setCurrentUser] = useState(() => {
+    try {
+      return JSON.parse(window.sessionStorage.getItem(SESSION_KEY) || 'null');
+    } catch {
+      return null;
+    }
+  });
   const [leads, setLeads] = useState(readLeads);
   const [selectedId, setSelectedId] = useState(() => readLeads()[0]?.id || '');
   const [draft, setDraft] = useState(initialLead);
@@ -262,6 +370,7 @@ export default function CRMPage() {
       ...initialLead,
       id: createId('lead'),
       name: 'New lead',
+      owner: currentUser?.name || '',
       createdAt: now,
       updatedAt: now,
       activities: [{ id: createId('activity'), type: 'Created', text: 'Lead created manually.', at: now }]
@@ -312,8 +421,13 @@ export default function CRMPage() {
     event.target.value = '';
   };
 
-  if (!isUnlocked) {
-    return <LoginGate onUnlock={() => setIsUnlocked(true)} />;
+  const signOut = () => {
+    window.sessionStorage.removeItem(SESSION_KEY);
+    setCurrentUser(null);
+  };
+
+  if (!currentUser) {
+    return <LoginGate onUnlock={setCurrentUser} />;
   }
 
   const activeTone = stages.find((stage) => stage.id === draft.status)?.tone || stages[0].tone;
@@ -330,6 +444,10 @@ export default function CRMPage() {
             </div>
           </div>
           <div className="flex flex-wrap items-center gap-2">
+            <div className="mr-1 hidden text-right sm:block">
+              <p className="text-sm font-semibold text-slate-900">{currentUser.name}</p>
+              <p className="text-xs text-slate-500">{currentUser.email}</p>
+            </div>
             <button className="rounded-md border border-slate-200 bg-white px-3 py-2 text-sm font-semibold hover:bg-slate-50" onClick={exportLeads}>
               Export
             </button>
@@ -339,6 +457,9 @@ export default function CRMPage() {
             <input ref={importInputRef} className="hidden" type="file" accept="application/json" onChange={importLeads} />
             <button className="rounded-md bg-cyanbrand-500 px-3 py-2 text-sm font-bold text-slate-950 hover:bg-cyanbrand-400" onClick={createLead}>
               New Lead
+            </button>
+            <button className="rounded-md border border-slate-200 bg-white px-3 py-2 text-sm font-semibold hover:bg-slate-50" onClick={signOut}>
+              Sign Out
             </button>
           </div>
         </div>

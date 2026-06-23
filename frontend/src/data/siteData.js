@@ -1,23 +1,23 @@
 export const services = [
   {
-    title: 'Website Development',
-    text: 'Responsive company websites built with clean structure, fast loading, and conversion-focused pages.',
-    outcome: 'Launch-ready web presence'
+    title: 'Company Websites',
+    text: 'Responsive websites that explain your services clearly and give visitors an obvious next step.',
+    outcome: 'A complete working website'
   },
   {
-    title: 'Business Website Design',
-    text: 'Premium layouts, clear messaging, and visual systems that make your company feel credible from the first visit.',
-    outcome: 'Sharper brand perception'
+    title: 'Website Redesigns',
+    text: 'A clearer structure, stronger visual direction, and better mobile experience for an existing website.',
+    outcome: 'A more useful website'
   },
   {
     title: 'Custom Web Applications',
-    text: 'Dashboards, portals, booking flows, and workflow tools designed around the way your team operates.',
-    outcome: 'Better digital operations'
+    text: 'Dashboards, portals, booking flows, and internal tools shaped around the way your team works.',
+    outcome: 'Less manual work'
   },
   {
-    title: 'UI/UX Design',
-    text: 'User journeys, wireframes, interface systems, and product screens that feel simple, polished, and useful.',
-    outcome: 'Cleaner user journeys'
+    title: 'UX and Interface Design',
+    text: 'Page flows, wireframes, and interface systems that make complex tasks easier to understand.',
+    outcome: 'Clearer user journeys'
   },
   {
     title: 'SEO-ready Website Setup',
@@ -31,7 +31,7 @@ export const services = [
   },
   {
     title: 'Digital Consulting',
-    text: 'Guidance for choosing the right platforms, automations, integrations, and digital roadmap for your business.',
+    text: 'Guidance for choosing the right platforms, integrations, workflows, and digital roadmap for your business.',
     outcome: 'Clearer technology decisions'
   },
   {
@@ -156,26 +156,5 @@ export const faqs = [
   {
     question: 'Do you provide support after launch?',
     answer: 'Yes. We can help with maintenance, updates, improvements, troubleshooting, and future website enhancements after the initial launch.'
-  }
-];
-
-export const testimonials = [
-  {
-    quote:
-      'YalaByte brings the structured thinking growing companies need when their online presence has to look credible and work properly.',
-    name: 'Business client',
-    role: 'Operations lead'
-  },
-  {
-    quote:
-      'The process feels practical, clear, and business-focused. Every decision connects back to how customers will use the website.',
-    name: 'Startup founder',
-    role: 'Founder'
-  },
-  {
-    quote:
-      'Their approach is calm and premium: understand the business, shape the message, then build a website that feels ready for real customers.',
-    name: 'Service business',
-    role: 'Managing director'
   }
 ];

@@ -1,0 +1,1 @@
+<footer class="site-footer"><div class="footer-grid wrap"><div><strong>NORTHSTAR LOGISTICS</strong><p>Reliable freight across road, air, and ocean.</p></div><div><strong>Operations</strong><p>Services<br>Coverage<br>Tracking</p></div><div><strong>Support</strong><p>24/7 control tower<br>operations@northstar.example</p></div></div></footer><?php wp_footer(); ?></body></html>

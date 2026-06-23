@@ -1,0 +1,1 @@
+<?php get_header(); ?><main><header class="page-hero"><div class="wrap"><p class="eyebrow">Aster Travel</p><h1><?php the_title(); ?></h1></div></header><section class="section wrap"><article class="content"><?php while(have_posts()):the_post();the_content();endwhile; ?></article></section></main><?php get_footer(); ?>

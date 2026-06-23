@@ -1,17 +1,19 @@
 import SectionHeader from './SectionHeader.jsx';
 import { services } from '../data/siteData.js';
 
-export default function Services() {
+export default function Services({ showIntro = true }) {
   return (
-    <section className="bg-[#141618] px-5 py-24 text-white sm:px-6 lg:px-8">
+    <section className={`bg-[#141618] px-5 text-white sm:px-6 lg:px-8 ${showIntro ? 'py-24' : 'py-16 sm:py-20 lg:py-24'}`}>
       <div className="mx-auto max-w-7xl">
-        <SectionHeader
-          light
-          eyebrow="Services"
-          title="A complete digital team for the work that moves your business forward"
-          text="From the first website impression to the systems behind your operations, YalaByte gives businesses a practical path to better digital infrastructure."
-        />
-        <div className="mt-14 grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
+        {showIntro ? (
+          <SectionHeader
+            light
+            eyebrow="Services"
+            title="Website work, scoped around the actual job"
+            text="Start with a new company website, improve an existing one, or add the custom tools your team needs."
+          />
+        ) : null}
+        <div className={`${showIntro ? 'mt-14' : ''} grid gap-4 sm:grid-cols-2 lg:grid-cols-3`}>
           {services.map((service, index) => (
             <article key={service.title} className={`motion-soft group rounded-lg border p-6 transition hover:-translate-y-1 hover:shadow-soft ${index === 0 ? 'border-cyanbrand-500 bg-cyanbrand-500 text-navy-950 lg:row-span-2' : 'border-white/10 bg-white/[0.04] text-white'}`} style={{ animationDelay: `${index * 45}ms` }}>
               <div className="mb-8 flex items-center justify-between">
