@@ -9,6 +9,8 @@ const initialState = {
   message: ''
 };
 
+const CRM_STORAGE_KEY = 'yalabyte-crm-leads';
+
 const serviceOptions = [
   'Website Development',
   'Business Website Design',
@@ -18,6 +20,51 @@ const serviceOptions = [
   'Maintenance and Support',
   'Digital Consulting'
 ];
+
+function createLeadId() {
+  if (window.crypto?.randomUUID) {
+    return `lead-${window.crypto.randomUUID()}`;
+  }
+  return `lead-${Date.now()}-${Math.random().toString(16).slice(2)}`;
+}
+
+function saveSubmissionToCRM(form, receivedAt) {
+  const now = receivedAt || new Date().toISOString();
+  const lead = {
+    id: createLeadId(),
+    name: form.name.trim(),
+    email: form.email.trim(),
+    phone: form.phone.trim(),
+    company: form.company.trim(),
+    service: form.service.trim(),
+    status: 'new',
+    priority: 'Medium',
+    owner: '',
+    value: '',
+    followUpDate: '',
+    source: 'Website form',
+    message: form.message.trim(),
+    notes: '',
+    createdAt: now,
+    updatedAt: now,
+    activities: [
+      {
+        id: createLeadId().replace('lead-', 'activity-'),
+        type: 'Created',
+        text: 'Lead created from website contact form.',
+        at: now
+      }
+    ]
+  };
+
+  try {
+    const current = JSON.parse(window.localStorage.getItem(CRM_STORAGE_KEY) || '[]');
+    if (!Array.isArray(current)) return;
+    window.localStorage.setItem(CRM_STORAGE_KEY, JSON.stringify([lead, ...current]));
+  } catch {
+    window.localStorage.setItem(CRM_STORAGE_KEY, JSON.stringify([lead]));
+  }
+}
 
 export default function Contact() {
   const [form, setForm] = useState(initialState);
@@ -73,6 +120,7 @@ export default function Contact() {
       }
 
       setStatus({ type: 'success', message: result.message });
+      saveSubmissionToCRM(form, result.received_at);
       setForm(initialState);
     } catch (error) {
       setStatus({

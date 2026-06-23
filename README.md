@@ -67,6 +67,24 @@ Contact form endpoint:
 POST http://localhost:8000/api/contact
 ```
 
+## CRM
+
+The team CRM is available at:
+
+```text
+/crm
+```
+
+For production, point a subdomain such as `crm.yalabyte.com` to the same deployed frontend. The app opens the CRM automatically on hosts that start with `crm.`, and `/crm` also works on the main domain or localhost.
+
+Set a team passcode for the browser-based CRM gate:
+
+```env
+VITE_CRM_PASSCODE=choose-a-private-team-passcode
+```
+
+The first CRM version stores leads in browser local storage and supports JSON import/export. It is useful for team workflow testing and small internal use. For a shared production CRM across multiple team members, connect `/api/contact` and `/crm` to a database such as Supabase/PostgreSQL so website form submissions appear for every logged-in team member.
+
 ## Environment
 
 Create `frontend/.env`:

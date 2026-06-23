@@ -66,4 +66,15 @@ def receive_contact_submission(submission: ContactSubmission):
     return {
         "message": "Thank you. Your project inquiry has been received and YalaByte will follow up soon.",
         "received_at": received_at,
+        "lead": {
+            "name": submission.name,
+            "email": submission.email,
+            "phone": submission.phone or "",
+            "company": submission.company or "",
+            "service": submission.service,
+            "source": "Website form",
+            "status": "new",
+            "message": submission.message,
+            "received_at": received_at,
+        },
     }

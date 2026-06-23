@@ -7,6 +7,7 @@ import PortfolioPage from './pages/PortfolioPage.jsx';
 import PortfolioDemoPage from './pages/PortfolioDemoPage.jsx';
 import AboutPage from './pages/AboutPage.jsx';
 import ContactPage from './pages/ContactPage.jsx';
+import CRMPage from './pages/CRMPage.jsx';
 
 const pages = {
   '/': HomePage,
@@ -19,6 +20,7 @@ const pages = {
 export default function App() {
   const [path, setPath] = useState(window.location.pathname);
   const demoMatch = path.match(/^\/portfolio\/([^/]+)$/);
+  const isCRM = path.startsWith('/crm') || window.location.hostname.startsWith('crm.');
   const Page = demoMatch ? PortfolioDemoPage : pages[path] || HomePage;
 
   useEffect(() => {
@@ -26,6 +28,10 @@ export default function App() {
     window.addEventListener('popstate', handleNavigation);
     return () => window.removeEventListener('popstate', handleNavigation);
   }, []);
+
+  if (isCRM) {
+    return <CRMPage />;
+  }
 
   return (
     <div className="min-h-screen bg-slate-50 text-ink antialiased">

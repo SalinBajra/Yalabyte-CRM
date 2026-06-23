@@ -249,6 +249,17 @@ class handler(BaseHTTPRequestHandler):
                     "message": "Thank you. Your project inquiry has been received and YalaByte will follow up soon.",
                     "notification_status": "logged",
                     "received_at": received_at,
+                    "lead": {
+                        "name": name,
+                        "email": email,
+                        "phone": normalized_payload["phone"],
+                        "company": normalized_payload["company"],
+                        "service": service,
+                        "source": "Website form",
+                        "status": "new",
+                        "message": message,
+                        "received_at": received_at,
+                    },
                 },
             )
             return
@@ -258,5 +269,16 @@ class handler(BaseHTTPRequestHandler):
             {
                 "message": "Thank you. Your project inquiry has been received and YalaByte will follow up soon.",
                 "received_at": received_at,
+                "lead": {
+                    "name": name,
+                    "email": email,
+                    "phone": normalized_payload["phone"],
+                    "company": normalized_payload["company"],
+                    "service": service,
+                    "source": "Website form",
+                    "status": "new",
+                    "message": message,
+                    "received_at": received_at,
+                },
             },
         )
