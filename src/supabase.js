@@ -80,3 +80,74 @@ export async function deleteLeadWithAudit(leadId, actorName) {
   });
   if (error) throw error;
 }
+
+export async function fetchContacts() {
+  const { data, error } = await supabase.from('contacts').select('*').order('updated_at', { ascending: false });
+  if (error) throw error;
+  return data || [];
+}
+
+export async function createContact(contact, user) {
+  const { data, error } = await supabase
+    .from('contacts')
+    .insert({
+      ...contact,
+      created_by: user.id,
+      created_by_name: user.name,
+      created_by_email: user.email
+    })
+    .select()
+    .single();
+  if (error) throw error;
+  return data;
+}
+
+export async function updateContact(contactId, changes) {
+  const { data, error } = await supabase
+    .from('contacts')
+    .update({ ...changes, updated_at: new Date().toISOString() })
+    .eq('id', contactId)
+    .select()
+    .single();
+  if (error) throw error;
+  return data;
+}
+
+export async function fetchContactTasks(contactId) {
+  const { data, error } = await supabase
+    .from('contact_tasks')
+    .select('*')
+    .eq('contact_id', contactId)
+    .order('created_at', { ascending: false });
+  if (error) throw error;
+  return data || [];
+}
+
+export async function createContactTask(task, contactId, assignee, user) {
+  const { data, error } = await supabase
+    .from('contact_tasks')
+    .insert({
+      contact_id: contactId,
+      title: task.title,
+      description: task.description,
+      due_date: task.dueDate || null,
+      assigned_to: assignee.user_id,
+      assigned_to_name: assignee.name,
+      assigned_to_email: assignee.email,
+      assigned_by: user.id,
+      assigned_by_name: user.name,
+      assigned_by_email: user.email
+    })
+    .select()
+    .single();
+  if (error) throw error;
+  return data;
+}
+
+export async function setContactTaskStatus(taskId, status) {
+  const { error } = await supabase
+    .from('contact_tasks')
+    .update({ status, completed_at: status === 'done' ? new Date().toISOString() : null })
+    .eq('id', taskId);
+  if (error) throw error;
+}

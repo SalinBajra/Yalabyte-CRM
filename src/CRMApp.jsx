@@ -1,4 +1,5 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
+import ContactsView from './ContactsView';
 import {
   deleteLeadWithAudit,
   fetchDeletionNotifications,
@@ -466,6 +467,7 @@ export default function CRMApp() {
   const [notificationsOpen, setNotificationsOpen] = useState(false);
   const [deleting, setDeleting] = useState(false);
   const [isCreatingLead, setIsCreatingLead] = useState(false);
+  const [activeWorkspace, setActiveWorkspace] = useState('leads');
   const importInputRef = useRef(null);
 
   const selectedLead = isCreatingLead ? null : leads.find((lead) => lead.id === selectedId) || leads[0] || null;
@@ -793,7 +795,13 @@ export default function CRMApp() {
     <main className="min-h-screen bg-slate-100 text-slate-950">
       <div className="sticky top-0 z-20 border-b border-slate-200/80 bg-white/95 shadow-[0_1px_12px_rgba(15,23,42,0.04)] backdrop-blur">
         <div className="mx-auto flex max-w-[1500px] flex-col gap-4 px-4 py-4 sm:px-6 lg:flex-row lg:items-center lg:justify-between">
-          <Brand compact />
+          <div className="flex flex-wrap items-center gap-5">
+            <Brand compact />
+            <nav className="flex rounded-lg bg-slate-100 p-1" aria-label="CRM workspace">
+              <button className={`rounded-md px-3 py-2 text-sm font-bold ${activeWorkspace === 'leads' ? 'bg-white text-slate-950 shadow-sm' : 'text-slate-500'}`} onClick={() => setActiveWorkspace('leads')} type="button">Leads</button>
+              <button className={`rounded-md px-3 py-2 text-sm font-bold ${activeWorkspace === 'contacts' ? 'bg-white text-slate-950 shadow-sm' : 'text-slate-500'}`} onClick={() => setActiveWorkspace('contacts')} type="button">Contacts</button>
+            </nav>
+          </div>
           <div className="flex flex-wrap items-center gap-2">
             <div className="mr-1 hidden text-right sm:block">
               <p className="text-sm font-semibold text-slate-900">{currentUser.name}</p>
@@ -855,14 +863,18 @@ export default function CRMApp() {
             </button>
           </div>
         </div>
-        <div className="mx-auto grid max-w-[1500px] grid-cols-2 overflow-hidden border-t border-slate-200 sm:grid-cols-4">
+        {activeWorkspace === 'leads' ? <div className="mx-auto grid max-w-[1500px] grid-cols-2 overflow-hidden border-t border-slate-200 sm:grid-cols-4">
           <Stat label="Total leads" value={stats.total} />
           <Stat label="Open leads" value={stats.open} />
           <Stat label="Pipeline value" value={money(stats.totalValue)} />
           <Stat label="Due now" value={stats.dueToday} />
-        </div>
+        </div> : null}
       </div>
 
+      {activeWorkspace === 'contacts' ? (
+        <ContactsView currentUser={currentUser} teamMembers={teamMembers} />
+      ) : (
+        <>
       {dataError ? (
         <div className="mx-auto mt-4 max-w-[1500px] px-4 sm:px-6">
           <p className="rounded-lg border border-red-200 bg-red-50 px-4 py-3 text-sm font-medium text-red-700">{dataError}</p>
@@ -1088,6 +1100,8 @@ export default function CRMApp() {
           </aside>
         </section>
       </div>
+        </>
+      )}
     </main>
   );
 }
