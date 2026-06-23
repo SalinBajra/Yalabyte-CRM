@@ -52,7 +52,7 @@ const sampleLeads = [
     status: 'new',
     priority: 'High',
     owner: 'Paul',
-    value: '1500',
+    value: '150000',
     followUpDate: new Date(Date.now() + 86400000).toISOString().slice(0, 10),
     source: 'Website form',
     message: 'Needs a polished travel website with inquiry forms and package pages.',
@@ -78,7 +78,7 @@ const sampleLeads = [
     status: 'proposal',
     priority: 'Medium',
     owner: 'YalaByte',
-    value: '4200',
+    value: '420000',
     followUpDate: new Date(Date.now() + 3 * 86400000).toISOString().slice(0, 10),
     source: 'Referral',
     message: 'Looking for a client portal and internal project dashboard.',
@@ -128,18 +128,36 @@ function daysUntil(value) {
 
 function money(value) {
   const amount = Number(value || 0);
-  return new Intl.NumberFormat('en-US', { style: 'currency', currency: 'USD', maximumFractionDigits: 0 }).format(amount);
+  return `Rs ${new Intl.NumberFormat('en-NP', { maximumFractionDigits: 0 }).format(amount)}`;
 }
 
 function fieldClass() {
-  return 'mt-1.5 w-full rounded-md border border-slate-200 bg-white px-3 py-2 text-sm text-slate-950 outline-none transition focus:border-cyanbrand-500 focus:ring-4 focus:ring-cyanbrand-100';
+  return 'mt-1.5 w-full rounded-lg border border-slate-200 bg-white px-3.5 py-2.5 text-sm text-slate-950 outline-none transition placeholder:text-slate-400 hover:border-slate-300 focus:border-cyanbrand-500 focus:ring-4 focus:ring-cyanbrand-100';
 }
 
 function Stat({ label, value }) {
   return (
-    <div className="border-r border-slate-200 px-4 py-3 last:border-r-0">
-      <p className="text-xs font-semibold uppercase tracking-normal text-slate-500">{label}</p>
-      <p className="mt-1 text-xl font-semibold text-slate-950">{value}</p>
+    <div className="border-r border-slate-200 px-5 py-4 last:border-r-0">
+      <p className="text-[11px] font-bold uppercase tracking-[0.12em] text-slate-500">{label}</p>
+      <p className="mt-1.5 text-xl font-bold tracking-tight text-slate-950">{value}</p>
+    </div>
+  );
+}
+
+function Brand({ compact = false }) {
+  return (
+    <div className="flex items-center gap-3">
+      <img
+        className={`${compact ? 'h-10 w-10' : 'h-12 w-12'} rounded-xl object-cover shadow-sm`}
+        src="/favicon.png"
+        alt="YalaByte logo"
+      />
+      <div>
+        <p className={`${compact ? 'text-lg' : 'text-xl'} font-extrabold tracking-tight text-slate-950`}>
+          Yala<span className="text-cyanbrand-500">Byte</span>
+        </p>
+        <p className="text-[10px] font-bold uppercase tracking-[0.2em] text-slate-500">Team CRM</p>
+      </div>
     </div>
   );
 }
@@ -220,11 +238,12 @@ function LoginGate({ onUnlock }) {
   };
 
   return (
-    <main className="min-h-screen bg-slate-950 px-5 py-10 text-white">
+    <main className="login-shell min-h-screen px-5 py-10 text-white">
       <div className="mx-auto flex min-h-[calc(100vh-5rem)] max-w-md items-center">
-        <form className="w-full rounded-lg border border-white/10 bg-white p-6 text-slate-950 shadow-soft" onSubmit={handleSubmit}>
-          <img className="h-10 w-auto" src="/images/yalabyte-logo-transparent.png" alt="YalaByte" />
-          <h1 className="mt-8 text-2xl font-semibold tracking-normal">Team CRM</h1>
+        <form className="w-full rounded-2xl border border-white/10 bg-white p-7 text-slate-950 shadow-soft sm:p-8" onSubmit={handleSubmit}>
+          <Brand />
+          <div className="mt-8 h-px bg-slate-100" />
+          <h1 className="mt-7 text-2xl font-bold tracking-tight">Welcome to the workspace</h1>
           <p className="mt-2 text-sm leading-6 text-slate-600">Sign in with a YalaByte domain email to open the lead workspace.</p>
           <div className="mt-6 grid grid-cols-2 rounded-md bg-slate-100 p-1">
             <button
@@ -277,7 +296,7 @@ function LoginGate({ onUnlock }) {
             />
           </label>
           {error ? <p className="mt-4 rounded-md bg-red-50 px-3 py-2 text-sm font-medium text-red-700">{error}</p> : null}
-          <button className="mt-5 w-full rounded-md bg-cyanbrand-500 px-4 py-3 text-sm font-bold text-slate-950 transition hover:bg-cyanbrand-400">
+          <button className="mt-5 w-full rounded-lg bg-cyanbrand-500 px-4 py-3 text-sm font-bold text-navy-950 shadow-sm transition hover:-translate-y-0.5 hover:bg-cyanbrand-400 hover:shadow-md">
             {mode === 'signup' ? 'Create Account' : 'Sign In'}
           </button>
         </form>
@@ -434,15 +453,9 @@ export default function CRMApp() {
 
   return (
     <main className="min-h-screen bg-slate-100 text-slate-950">
-      <div className="border-b border-slate-200 bg-white">
+      <div className="sticky top-0 z-20 border-b border-slate-200/80 bg-white/95 shadow-[0_1px_12px_rgba(15,23,42,0.04)] backdrop-blur">
         <div className="mx-auto flex max-w-[1500px] flex-col gap-4 px-4 py-4 sm:px-6 lg:flex-row lg:items-center lg:justify-between">
-          <div className="flex items-center gap-4">
-            <img className="h-9 w-auto" src="/images/yalabyte-logo-transparent.png" alt="YalaByte" />
-            <div>
-              <h1 className="text-xl font-semibold tracking-normal">YalaByte CRM</h1>
-              <p className="text-sm text-slate-500">Lead pipeline for team follow-up and project progress.</p>
-            </div>
-          </div>
+          <Brand compact />
           <div className="flex flex-wrap items-center gap-2">
             <div className="mr-1 hidden text-right sm:block">
               <p className="text-sm font-semibold text-slate-900">{currentUser.name}</p>
@@ -472,11 +485,11 @@ export default function CRMApp() {
       </div>
 
       <div className="mx-auto grid max-w-[1500px] gap-4 px-4 py-4 sm:px-6 xl:grid-cols-[360px_1fr]">
-        <aside className="rounded-lg border border-slate-200 bg-white">
+        <aside className="overflow-hidden rounded-xl border border-slate-200 bg-white shadow-card">
           <div className="border-b border-slate-200 p-3">
             <input
-              className="w-full rounded-md border border-slate-200 px-3 py-2 text-sm outline-none focus:border-cyanbrand-500 focus:ring-4 focus:ring-cyanbrand-100"
-              placeholder="Search leads"
+              className="w-full rounded-lg border border-slate-200 px-3.5 py-2.5 text-sm outline-none transition placeholder:text-slate-400 focus:border-cyanbrand-500 focus:ring-4 focus:ring-cyanbrand-100"
+              placeholder="Search leads, companies, owners…"
               value={query}
               onChange={(event) => setQuery(event.target.value)}
             />
@@ -516,8 +529,12 @@ export default function CRMApp() {
                       {stages.find((stage) => stage.id === lead.status)?.label || 'New'}
                     </span>
                   </div>
-                  <div className="mt-3 flex items-center justify-between text-xs text-slate-500">
-                    <span>{lead.service}</span>
+                  <div className="mt-3 flex items-center justify-between gap-3 text-xs text-slate-500">
+                    <span className="truncate">{lead.service}</span>
+                    <span className="shrink-0 font-semibold text-slate-700">{money(lead.value)}</span>
+                  </div>
+                  <div className="mt-2 flex items-center justify-between text-xs text-slate-500">
+                    <span>{lead.priority || 'Medium'} priority</span>
                     <span className={due !== null && due <= 0 ? 'font-bold text-red-600' : ''}>{formatDate(lead.followUpDate)}</span>
                   </div>
                 </button>
@@ -528,7 +545,7 @@ export default function CRMApp() {
         </aside>
 
         <section className="grid gap-4 lg:grid-cols-[1fr_360px]">
-          <form className="rounded-lg border border-slate-200 bg-white p-4 sm:p-5" onSubmit={saveDraft}>
+          <form className="rounded-xl border border-slate-200 bg-white p-4 shadow-card sm:p-6" onSubmit={saveDraft}>
             {selectedLead ? (
               <>
                 <div className="flex flex-col gap-3 border-b border-slate-200 pb-4 sm:flex-row sm:items-start sm:justify-between">
@@ -590,8 +607,11 @@ export default function CRMApp() {
                     <input className={fieldClass()} name="owner" value={draft.owner} onChange={handleDraftChange} />
                   </label>
                   <label className="text-sm font-semibold">
-                    Estimated value
-                    <input className={fieldClass()} name="value" type="number" min="0" value={draft.value} onChange={handleDraftChange} />
+                    Estimated value (NPR)
+                    <div className="relative">
+                      <span className="pointer-events-none absolute left-3.5 top-[19px] text-sm font-semibold text-slate-500">Rs</span>
+                      <input className={`${fieldClass()} pl-10`} name="value" type="number" min="0" step="1000" value={draft.value} onChange={handleDraftChange} />
+                    </div>
                   </label>
                   <label className="text-sm font-semibold">
                     Follow-up date
@@ -613,7 +633,7 @@ export default function CRMApp() {
             )}
           </form>
 
-          <aside className="rounded-lg border border-slate-200 bg-white p-4">
+          <aside className="rounded-xl border border-slate-200 bg-white p-5 shadow-card">
             <h3 className="text-base font-semibold tracking-normal">Progress</h3>
             <div className="mt-4 space-y-2">
               {stages.map((stage) => (

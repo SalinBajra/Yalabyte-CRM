@@ -20,7 +20,8 @@ export default {
         sans: ['Inter', 'ui-sans-serif', 'system-ui', 'Segoe UI', 'Arial', 'sans-serif']
       },
       boxShadow: {
-        soft: '0 24px 80px rgba(6, 17, 31, 0.16)'
+        soft: '0 24px 80px rgba(6, 17, 31, 0.22)',
+        card: '0 8px 30px rgba(15, 23, 42, 0.05)'
       }
     }
   },
