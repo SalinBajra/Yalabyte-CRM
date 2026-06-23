@@ -148,14 +148,33 @@ function fieldClass() {
   return 'mt-1.5 w-full rounded-lg border border-slate-200 bg-white px-3.5 py-2.5 text-sm text-slate-950 outline-none transition placeholder:text-slate-400 hover:border-slate-300 focus:border-cyanbrand-500 focus:ring-4 focus:ring-cyanbrand-100';
 }
 
-function Stat({ label, value, accent = 'bg-cyanbrand-500' }) {
+function MetricIcon({ type }) {
+  if (type === 'pipeline') return <svg aria-hidden="true" className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth="1.8"><path strokeLinecap="round" strokeLinejoin="round" d="M4 19V9m5 10V5m5 14v-7m5 7V3" /></svg>;
+  if (type === 'due') return <svg aria-hidden="true" className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth="1.8"><path strokeLinecap="round" strokeLinejoin="round" d="M12 7v5l3 2m6-2a9 9 0 1 1-18 0 9 9 0 0 1 18 0Z" /></svg>;
+  if (type === 'open') return <svg aria-hidden="true" className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth="1.8"><path strokeLinecap="round" strokeLinejoin="round" d="M3 7.5h6l2 2H21v9.5a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V7.5Zm0 0v-2a2 2 0 0 1 2-2h4l2 2h6a2 2 0 0 1 2 2v2" /></svg>;
+  return <svg aria-hidden="true" className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth="1.8"><path strokeLinecap="round" strokeLinejoin="round" d="M16 18.5a4 4 0 0 0-8 0m4-7a3 3 0 1 0 0-6 3 3 0 0 0 0 6Zm7 7a3.5 3.5 0 0 0-3-3.46m.5-8.9a2.5 2.5 0 0 1 0 4.72M5 18.5a3.5 3.5 0 0 1 3-3.46m-.5-8.9a2.5 2.5 0 0 0 0 4.72" /></svg>;
+}
+
+function SearchIcon() {
+  return <svg aria-hidden="true" className="h-[18px] w-[18px]" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth="1.8"><path strokeLinecap="round" strokeLinejoin="round" d="m21 21-4.35-4.35m2.35-5.15a7.5 7.5 0 1 1-15 0 7.5 7.5 0 0 1 15 0Z" /></svg>;
+}
+
+function Stat({ label, value, icon = 'leads', tone = 'cyan' }) {
+  const tones = {
+    cyan: 'border-cyan-100 bg-cyan-50 text-cyan-700',
+    sky: 'border-sky-100 bg-sky-50 text-sky-700',
+    emerald: 'border-emerald-100 bg-emerald-50 text-emerald-700',
+    amber: 'border-amber-100 bg-amber-50 text-amber-700'
+  };
   return (
-    <div className="group border-r border-slate-200/80 px-5 py-4 transition hover:bg-white last:border-r-0">
-      <div className="flex items-center gap-2">
-        <span className={`h-2 w-2 rounded-full ${accent} shadow-[0_0_0_4px_rgba(148,163,184,0.1)]`} />
+    <div className="group flex items-center gap-3 border-r border-slate-200/80 px-5 py-4 transition hover:bg-white last:border-r-0">
+      <span className={`flex h-10 w-10 shrink-0 items-center justify-center rounded-xl border ${tones[tone] || tones.cyan}`}>
+        <MetricIcon type={icon} />
+      </span>
+      <div>
         <p className="text-[10px] font-extrabold uppercase tracking-[0.15em] text-slate-500">{label}</p>
+        <p className="mt-1 text-xl font-extrabold tracking-tight text-slate-950">{value}</p>
       </div>
-      <p className="mt-2 text-xl font-extrabold tracking-tight text-slate-950">{value}</p>
     </div>
   );
 }
@@ -913,10 +932,10 @@ export default function CRMApp() {
           </div>
         </div>
         {activeWorkspace === 'leads' ? <div className="mx-auto grid max-w-[1500px] grid-cols-2 overflow-hidden border-t border-slate-200 bg-slate-50/70 sm:grid-cols-4">
-          <Stat label="Total leads" value={stats.total} accent="bg-cyanbrand-500" />
-          <Stat label="Open leads" value={stats.open} accent="bg-sky-500" />
-          <Stat label="Pipeline value" value={money(stats.totalValue)} accent="bg-emerald-500" />
-          <Stat label="Due now" value={stats.dueToday} accent={stats.dueToday ? 'bg-rose-500' : 'bg-slate-300'} />
+          <Stat label="Total leads" value={stats.total} icon="leads" tone="cyan" />
+          <Stat label="Open leads" value={stats.open} icon="open" tone="sky" />
+          <Stat label="Pipeline value" value={money(stats.totalValue)} icon="pipeline" tone="emerald" />
+          <Stat label="Due now" value={stats.dueToday} icon="due" tone="amber" />
         </div> : null}
       </div>
 
@@ -938,17 +957,21 @@ export default function CRMApp() {
                 <p className="text-[10px] font-extrabold uppercase tracking-[0.16em] text-cyan-700">Pipeline</p>
                 <h2 className="mt-0.5 text-lg font-extrabold tracking-tight">Lead opportunities</h2>
               </div>
-              <span className="rounded-full bg-slate-100 px-2.5 py-1 text-xs font-bold text-slate-600">{filteredLeads.length}</span>
+              <span className="rounded-lg border border-slate-200 bg-white px-2.5 py-1 text-[11px] font-bold text-slate-500">{filteredLeads.length} shown</span>
             </div>
-            <input
-              className="w-full rounded-lg border border-slate-200 px-3.5 py-2.5 text-sm outline-none transition placeholder:text-slate-400 focus:border-cyanbrand-500 focus:ring-4 focus:ring-cyanbrand-100"
-              placeholder="Search leads, companies, owners…"
-              value={query}
-              onChange={(event) => setQuery(event.target.value)}
-            />
-            <div className="mt-3 flex gap-2 overflow-x-auto">
+            <div className="relative">
+              <span className="pointer-events-none absolute left-3.5 top-1/2 -translate-y-1/2 text-slate-400"><SearchIcon /></span>
+              <input
+                className="w-full rounded-lg border border-slate-200 py-2.5 pl-10 pr-3.5 text-sm outline-none transition placeholder:text-slate-400 focus:border-cyanbrand-500 focus:ring-4 focus:ring-cyanbrand-100"
+                placeholder="Search leads, companies, owners…"
+                value={query}
+                onChange={(event) => setQuery(event.target.value)}
+              />
+            </div>
+            <p className="mb-2 mt-4 text-[10px] font-extrabold uppercase tracking-[0.14em] text-slate-400">Filter by stage</p>
+            <div className="grid grid-cols-3 gap-2">
               <button
-                className={`whitespace-nowrap rounded-md px-3 py-2 text-xs font-bold ${stageFilter === 'all' ? 'bg-slate-950 text-white' : 'bg-slate-100 text-slate-700'}`}
+                className={`rounded-lg px-2 py-2 text-xs font-bold transition ${stageFilter === 'all' ? 'bg-slate-950 text-white shadow-sm' : 'bg-slate-100 text-slate-600 hover:bg-slate-200'}`}
                 onClick={() => setStageFilter('all')}
               >
                 All
@@ -956,7 +979,7 @@ export default function CRMApp() {
               {stages.map((stage) => (
                 <button
                   key={stage.id}
-                  className={`whitespace-nowrap rounded-md px-3 py-2 text-xs font-bold ${stageFilter === stage.id ? 'bg-slate-950 text-white' : 'bg-slate-100 text-slate-700'}`}
+                  className={`rounded-lg px-2 py-2 text-xs font-bold transition ${stageFilter === stage.id ? 'bg-slate-950 text-white shadow-sm' : 'bg-slate-100 text-slate-600 hover:bg-slate-200'}`}
                   onClick={() => setStageFilter(stage.id)}
                 >
                   {stage.label}
