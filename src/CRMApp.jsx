@@ -1,5 +1,14 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
-import { fetchLeads, saveLeads, supabase, toCRMUser } from './supabase';
+import {
+  deleteLeadWithAudit,
+  fetchDeletionNotifications,
+  fetchLeads,
+  fetchTeamMembers,
+  registerTeamMember,
+  saveLeads,
+  supabase,
+  toCRMUser
+} from './supabase';
 
 const STORAGE_KEY = 'yalabyte-crm-leads';
 const SESSION_KEY = 'yalabyte-crm-session';
@@ -145,7 +154,7 @@ function Stat({ label, value }) {
   );
 }
 
-function Brand({ compact = false }) {
+function Brand({ compact = false, inverted = false }) {
   return (
     <div className="flex items-center gap-3">
       <img
@@ -154,10 +163,73 @@ function Brand({ compact = false }) {
         alt="YalaByte logo"
       />
       <div>
-        <p className={`${compact ? 'text-lg' : 'text-xl'} font-extrabold tracking-tight text-slate-950`}>
+        <p className={`${compact ? 'text-lg' : 'text-xl'} font-extrabold tracking-tight ${inverted ? 'text-white' : 'text-slate-950'}`}>
           Yala<span className="text-cyanbrand-500">Byte</span>
         </p>
-        <p className="text-[10px] font-bold uppercase tracking-[0.2em] text-slate-500">Team CRM</p>
+        <p className={`text-[10px] font-bold uppercase tracking-[0.2em] ${inverted ? 'text-slate-400' : 'text-slate-500'}`}>Team CRM</p>
+      </div>
+    </div>
+  );
+}
+
+function ProgressRoadmap({ status, onChange }) {
+  const pipelineStages = stages.slice(0, 3);
+  const currentIndex = pipelineStages.findIndex((stage) => stage.id === status);
+  const reachedOutcome = ['won', 'lost'].includes(status);
+
+  return (
+    <div className="mt-5">
+      <div className="space-y-0">
+        {pipelineStages.map((stage, index) => {
+          const complete = reachedOutcome || currentIndex > index;
+          const active = status === stage.id;
+          return (
+            <div className="relative flex gap-3 pb-5 last:pb-3" key={stage.id}>
+              {index < pipelineStages.length - 1 ? (
+                <span className={`absolute left-[15px] top-8 h-[calc(100%-1rem)] w-0.5 ${complete ? 'bg-cyanbrand-500' : 'bg-slate-200'}`} />
+              ) : null}
+              <button
+                className={`relative z-10 flex h-8 w-8 shrink-0 items-center justify-center rounded-full border-2 text-xs font-extrabold transition ${
+                  active
+                    ? 'border-cyanbrand-500 bg-cyanbrand-500 text-navy-950 shadow-[0_0_0_5px_rgba(19,200,222,0.12)]'
+                    : complete
+                      ? 'border-cyanbrand-500 bg-white text-cyan-700'
+                      : 'border-slate-200 bg-white text-slate-400'
+                }`}
+                onClick={() => onChange(stage.id)}
+                type="button"
+                aria-label={`Move lead to ${stage.label}`}
+              >
+                {complete ? '✓' : index + 1}
+              </button>
+              <button className="pt-1 text-left" onClick={() => onChange(stage.id)} type="button">
+                <span className={`block text-sm font-bold ${active ? 'text-slate-950' : 'text-slate-600'}`}>{stage.label}</span>
+                <span className="mt-0.5 block text-xs text-slate-400">
+                  {stage.id === 'new' ? 'Review the opportunity' : stage.id === 'contacted' ? 'Start the conversation' : 'Share scope and pricing'}
+                </span>
+              </button>
+            </div>
+          );
+        })}
+      </div>
+      <p className="mb-2 text-[11px] font-bold uppercase tracking-[0.14em] text-slate-400">Outcome</p>
+      <div className="grid grid-cols-2 gap-2">
+        {stages.slice(3).map((stage) => (
+          <button
+            key={stage.id}
+            className={`rounded-lg border px-3 py-2.5 text-sm font-bold transition ${
+              status === stage.id
+                ? stage.id === 'won'
+                  ? 'border-emerald-500 bg-emerald-50 text-emerald-800'
+                  : 'border-rose-400 bg-rose-50 text-rose-700'
+                : 'border-slate-200 text-slate-600 hover:bg-slate-50'
+            }`}
+            onClick={() => onChange(stage.id)}
+            type="button"
+          >
+            {stage.label}
+          </button>
+        ))}
       </div>
     </div>
   );
@@ -204,7 +276,7 @@ function LoginGate({ onUnlock }) {
     const normalizedEmail = email.trim().toLowerCase();
 
     if (!isAllowedTeamEmail(normalizedEmail)) {
-      setError('Use your YalaByte email address to access the CRM.');
+      setError('Access denied. Only verified @yalabyte.com team accounts can use this CRM.');
       return;
     }
 
@@ -279,13 +351,36 @@ function LoginGate({ onUnlock }) {
   };
 
   return (
-    <main className="login-shell min-h-screen px-5 py-10 text-white">
-      <div className="mx-auto flex min-h-[calc(100vh-5rem)] max-w-md items-center">
-        <form className="w-full rounded-2xl border border-white/10 bg-white p-7 text-slate-950 shadow-soft sm:p-8" onSubmit={handleSubmit}>
-          <Brand />
-          <div className="mt-8 h-px bg-slate-100" />
-          <h1 className="mt-7 text-2xl font-bold tracking-tight">Welcome to the workspace</h1>
-          <p className="mt-2 text-sm leading-6 text-slate-600">Sign in with a YalaByte domain email to open the lead workspace.</p>
+    <main className="login-shell min-h-screen px-5 py-8 text-white sm:py-10">
+      <div className="mx-auto flex min-h-[calc(100vh-5rem)] max-w-5xl items-center">
+        <div className="grid w-full overflow-hidden rounded-3xl border border-white/10 bg-white shadow-soft lg:grid-cols-[1.05fr_0.95fr]">
+          <section className="relative hidden overflow-hidden bg-navy-950 p-10 lg:flex lg:flex-col lg:justify-between">
+            <div className="absolute -right-24 -top-24 h-72 w-72 rounded-full bg-cyanbrand-500/15 blur-3xl" />
+            <div className="relative">
+              <Brand inverted />
+              <p className="mt-16 inline-flex rounded-full border border-cyanbrand-500/25 bg-cyanbrand-500/10 px-3 py-1.5 text-xs font-bold text-cyanbrand-400">
+                Private team workspace
+              </p>
+              <h1 className="mt-5 max-w-md text-4xl font-extrabold leading-tight tracking-tight text-white">Turn every inquiry into a clear next step.</h1>
+              <p className="mt-4 max-w-md text-sm leading-7 text-slate-300">Manage opportunities, ownership, follow-ups, and client progress from one focused workspace.</p>
+            </div>
+            <div className="relative mt-12 grid gap-3">
+              {['Shared lead pipeline', 'Live team ownership', 'Protected YalaByte access'].map((item) => (
+                <div className="flex items-center gap-3 text-sm font-semibold text-slate-200" key={item}>
+                  <span className="flex h-6 w-6 items-center justify-center rounded-full bg-cyanbrand-500/15 text-xs text-cyanbrand-400">✓</span>
+                  {item}
+                </div>
+              ))}
+            </div>
+          </section>
+
+          <form className="p-7 text-slate-950 sm:p-10" onSubmit={handleSubmit}>
+            <div className="lg:hidden"><Brand /></div>
+            <div className="mt-8 lg:mt-0">
+              <p className="text-xs font-bold uppercase tracking-[0.18em] text-cyan-700">Secure access</p>
+              <h2 className="mt-3 text-3xl font-extrabold tracking-tight">Welcome back</h2>
+              <p className="mt-2 text-sm leading-6 text-slate-600">Use your company email to continue to the YalaByte lead workspace.</p>
+            </div>
           <div className="mt-6 grid grid-cols-2 rounded-md bg-slate-100 p-1">
             <button
               className={`rounded px-3 py-2 text-sm font-bold ${mode === 'signin' ? 'bg-white text-slate-950 shadow-sm' : 'text-slate-500'}`}
@@ -336,12 +431,19 @@ function LoginGate({ onUnlock }) {
               autoComplete={mode === 'signup' ? 'new-password' : 'current-password'}
             />
           </label>
-          {error ? <p className="mt-4 rounded-md bg-red-50 px-3 py-2 text-sm font-medium text-red-700">{error}</p> : null}
+          {error ? (
+            <div className="mt-4 rounded-lg border border-red-100 bg-red-50 px-4 py-3" role="alert">
+              <p className="text-xs font-extrabold uppercase tracking-[0.12em] text-red-700">Access rejected</p>
+              <p className="mt-1 text-sm font-medium leading-5 text-red-700">{error}</p>
+            </div>
+          ) : null}
           {message ? <p className="mt-4 rounded-md bg-emerald-50 px-3 py-2 text-sm font-medium text-emerald-700">{message}</p> : null}
           <button disabled={busy} className="mt-5 w-full rounded-lg bg-cyanbrand-500 px-4 py-3 text-sm font-bold text-navy-950 shadow-sm transition hover:-translate-y-0.5 hover:bg-cyanbrand-400 hover:shadow-md disabled:cursor-wait disabled:opacity-60">
             {busy ? 'Please wait…' : mode === 'signup' ? 'Create Account' : 'Sign In'}
           </button>
+          <p className="mt-5 text-center text-xs leading-5 text-slate-400">Restricted to authorized <span className="font-bold text-slate-600">@yalabyte.com</span> accounts.</p>
         </form>
+        </div>
       </div>
     </main>
   );
@@ -359,6 +461,10 @@ export default function CRMApp() {
   const [query, setQuery] = useState('');
   const [stageFilter, setStageFilter] = useState('all');
   const [note, setNote] = useState('');
+  const [teamMembers, setTeamMembers] = useState([]);
+  const [notifications, setNotifications] = useState([]);
+  const [notificationsOpen, setNotificationsOpen] = useState(false);
+  const [deleting, setDeleting] = useState(false);
   const importInputRef = useRef(null);
 
   const selectedLead = leads.find((lead) => lead.id === selectedId) || leads[0] || null;
@@ -376,7 +482,12 @@ export default function CRMApp() {
 
     const acceptSession = (session) => {
       const user = toCRMUser(session?.user);
-      setCurrentUser(user && isAllowedTeamEmail(user.email) ? user : null);
+      if (user && !isAllowedTeamEmail(user.email)) {
+        setCurrentUser(null);
+        supabase.auth.signOut();
+      } else {
+        setCurrentUser(user);
+      }
       setAuthReady(true);
     };
 
@@ -403,10 +514,19 @@ export default function CRMApp() {
     fetchLeads()
       .then(async (remoteLeads) => {
         if (!active) return;
+        const [membersResult, notificationsResult] = await Promise.allSettled([
+          registerTeamMember(currentUser).then(() => fetchTeamMembers()),
+          fetchDeletionNotifications()
+        ]);
         const nextLeads = remoteLeads.length ? remoteLeads : readLeads();
         if (!remoteLeads.length && nextLeads.length) await saveLeads(nextLeads);
         if (!active) return;
         setLeads(nextLeads);
+        if (membersResult.status === 'fulfilled') setTeamMembers(membersResult.value);
+        if (notificationsResult.status === 'fulfilled') setNotifications(notificationsResult.value);
+        if (membersResult.status === 'rejected' || notificationsResult.status === 'rejected') {
+          setDataError('Team ownership and audit features require the latest Supabase migration.');
+        }
         setSelectedId(nextLeads[0]?.id || '');
         setDataReady(true);
       })
@@ -456,6 +576,12 @@ export default function CRMApp() {
           next[existingIndex] = incoming;
           return next;
         });
+      })
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'team_members' }, () => {
+        fetchTeamMembers().then(setTeamMembers).catch(() => {});
+      })
+      .on('postgres_changes', { event: 'INSERT', schema: 'public', table: 'lead_deletion_notifications' }, (payload) => {
+        setNotifications((current) => [payload.new, ...current].slice(0, 30));
       })
       .subscribe();
 
@@ -548,6 +674,44 @@ export default function CRMApp() {
     updateLead(selectedLead.id, { status }, `Status changed to ${label}.`);
   };
 
+  const handleDeleteLead = async () => {
+    if (!selectedLead || deleting) return;
+    const confirmed = window.confirm(
+      `Delete ${selectedLead.name || 'this lead'}? A protected audit copy and deletion notification will be retained.`
+    );
+    if (!confirmed) return;
+
+    setDeleting(true);
+    setDataError('');
+    try {
+      if (supabase) {
+        await deleteLeadWithAudit(selectedLead.id, currentUser.name);
+        const updatedNotifications = await fetchDeletionNotifications();
+        setNotifications(updatedNotifications);
+      } else {
+        setNotifications((current) => [
+          {
+            id: createId('deletion'),
+            lead_id: selectedLead.id,
+            lead_name: selectedLead.name || 'Unnamed lead',
+            deleted_by_name: currentUser.name,
+            deleted_by_email: currentUser.email,
+            deleted_at: new Date().toISOString()
+          },
+          ...current
+        ]);
+      }
+
+      const remainingLeads = leads.filter((lead) => lead.id !== selectedLead.id);
+      setLeads(remainingLeads);
+      setSelectedId(remainingLeads[0]?.id || '');
+    } catch (error) {
+      setDataError(error.message || 'Unable to delete this lead.');
+    } finally {
+      setDeleting(false);
+    }
+  };
+
   const exportLeads = () => {
     const blob = new Blob([JSON.stringify(leads, null, 2)], { type: 'application/json' });
     const url = URL.createObjectURL(blob);
@@ -596,6 +760,7 @@ export default function CRMApp() {
   }
 
   const activeTone = stages.find((stage) => stage.id === draft.status)?.tone || stages[0].tone;
+  const ownerOptions = Array.from(new Set([...teamMembers.map((member) => member.name), draft.owner].filter(Boolean)));
 
   return (
     <main className="min-h-screen bg-slate-100 text-slate-950">
@@ -608,6 +773,41 @@ export default function CRMApp() {
               <p className="text-xs text-slate-500">
                 {currentUser.email} · {syncState === 'syncing' ? 'Saving…' : syncState === 'error' ? 'Sync issue' : 'Synced'}
               </p>
+            </div>
+            <div className="relative">
+              <button
+                className="relative rounded-md border border-slate-200 bg-white px-3 py-2 text-sm font-semibold hover:bg-slate-50"
+                onClick={() => setNotificationsOpen((open) => !open)}
+                type="button"
+              >
+                Notifications
+                {notifications.length ? (
+                  <span className="ml-2 inline-flex min-w-5 items-center justify-center rounded-full bg-rose-500 px-1.5 py-0.5 text-[10px] font-extrabold text-white">
+                    {notifications.length}
+                  </span>
+                ) : null}
+              </button>
+              {notificationsOpen ? (
+                <div className="absolute right-0 top-12 z-40 w-[min(92vw,390px)] overflow-hidden rounded-xl border border-slate-200 bg-white shadow-soft">
+                  <div className="border-b border-slate-100 px-4 py-3">
+                    <p className="font-bold text-slate-950">Lead deletion log</p>
+                    <p className="mt-0.5 text-xs text-slate-500">Protected audit copies are retained in Supabase.</p>
+                  </div>
+                  <div className="max-h-80 overflow-y-auto">
+                    {notifications.map((notification) => (
+                      <div className="border-b border-slate-100 px-4 py-3 last:border-0" key={notification.id}>
+                        <p className="text-sm font-semibold text-slate-900">
+                          <span className="text-rose-600">Deleted:</span> {notification.lead_name}
+                        </p>
+                        <p className="mt-1 text-xs leading-5 text-slate-500">
+                          By {notification.deleted_by_name} · {formatDate(notification.deleted_at)}
+                        </p>
+                      </div>
+                    ))}
+                    {!notifications.length ? <p className="px-4 py-6 text-center text-sm text-slate-500">No deleted leads.</p> : null}
+                  </div>
+                </div>
+              ) : null}
             </div>
             <button className="rounded-md border border-slate-200 bg-white px-3 py-2 text-sm font-semibold hover:bg-slate-50" onClick={exportLeads}>
               Export
@@ -710,9 +910,19 @@ export default function CRMApp() {
                     <h2 className="mt-3 text-2xl font-semibold tracking-normal">{draft.name || 'Unnamed lead'}</h2>
                     <p className="mt-1 text-sm text-slate-500">Created {formatDate(draft.createdAt)} from {draft.source || 'Unknown source'}</p>
                   </div>
-                  <button className="rounded-md bg-slate-950 px-4 py-2.5 text-sm font-bold text-white hover:bg-slate-800">
-                    Save Lead
-                  </button>
+                  <div className="flex gap-2">
+                    <button
+                      className="rounded-md border border-rose-200 bg-white px-4 py-2.5 text-sm font-bold text-rose-600 hover:bg-rose-50 disabled:cursor-wait disabled:opacity-60"
+                      disabled={deleting}
+                      onClick={handleDeleteLead}
+                      type="button"
+                    >
+                      {deleting ? 'Deleting…' : 'Delete'}
+                    </button>
+                    <button className="rounded-md bg-slate-950 px-4 py-2.5 text-sm font-bold text-white hover:bg-slate-800" type="submit">
+                      Save Lead
+                    </button>
+                  </div>
                 </div>
 
                 <div className="mt-5 grid gap-4 md:grid-cols-2">
@@ -758,7 +968,13 @@ export default function CRMApp() {
                   </label>
                   <label className="text-sm font-semibold">
                     Owner
-                    <input className={fieldClass()} name="owner" value={draft.owner} onChange={handleDraftChange} />
+                    <select className={fieldClass()} name="owner" value={draft.owner} onChange={handleDraftChange}>
+                      <option value="">Unassigned</option>
+                      {ownerOptions.map((owner) => (
+                        <option key={owner} value={owner}>{owner}</option>
+                      ))}
+                    </select>
+                    <span className="mt-1.5 block text-xs font-normal text-slate-400">Team members appear after their first CRM sign-in.</span>
                   </label>
                   <label className="text-sm font-semibold">
                     Estimated value (NPR)
@@ -788,19 +1004,9 @@ export default function CRMApp() {
           </form>
 
           <aside className="rounded-xl border border-slate-200 bg-white p-5 shadow-card">
-            <h3 className="text-base font-semibold tracking-normal">Progress</h3>
-            <div className="mt-4 space-y-2">
-              {stages.map((stage) => (
-                <button
-                  key={stage.id}
-                  className={`w-full rounded-md border px-3 py-2 text-left text-sm font-bold ${draft.status === stage.id ? 'border-slate-950 bg-slate-950 text-white' : 'border-slate-200 bg-white text-slate-700 hover:bg-slate-50'}`}
-                  onClick={() => changeStatus(stage.id)}
-                  type="button"
-                >
-                  {stage.label}
-                </button>
-              ))}
-            </div>
+            <p className="text-[11px] font-bold uppercase tracking-[0.14em] text-cyan-700">Lead roadmap</p>
+            <h3 className="mt-1 text-lg font-bold tracking-tight">Progress</h3>
+            <ProgressRoadmap status={draft.status} onChange={changeStatus} />
 
             <div className="mt-6 border-t border-slate-200 pt-5">
               <h3 className="text-base font-semibold tracking-normal">Activity</h3>

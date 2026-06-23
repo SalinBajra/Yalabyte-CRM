@@ -34,7 +34,9 @@ Add `crm.yalabyte.com` under the Vercel project's domains, then configure the CN
 ## Supabase authentication and database
 
 1. Create a Supabase project.
-2. Open the Supabase SQL Editor and run [`supabase/migrations/202606230001_create_crm_leads.sql`](supabase/migrations/202606230001_create_crm_leads.sql).
+2. Open the Supabase SQL Editor and run the migrations in filename order:
+   - [`supabase/migrations/202606230001_create_crm_leads.sql`](supabase/migrations/202606230001_create_crm_leads.sql)
+   - [`supabase/migrations/202606230002_team_members_and_lead_audit.sql`](supabase/migrations/202606230002_team_members_and_lead_audit.sql)
 3. In Authentication settings, add `https://crm.yalabyte.com` as the Site URL and redirect URL.
 4. Copy `.env.example` to `.env` for local development and add the project values.
 5. Add the same variables in Vercel Project Settings → Environment Variables:
@@ -47,6 +49,8 @@ VITE_SUPABASE_PUBLISHABLE_KEY=your-supabase-publishable-key
 Use the browser-safe publishable key, never the Supabase secret or service-role key. Redeploy after adding the variables.
 
 Supabase Auth stores user accounts server-side, so accounts survive browser-data clearing and work across devices. Clearing browser data signs the user out, but they can sign in again. Leads are shared in PostgreSQL and protected by row-level security for authenticated `@yalabyte.com` users.
+
+Each authenticated team member is added to the lead-owner directory on sign-in. Lead deletion is audited through a protected database function that retains a complete snapshot and records who deleted the lead.
 
 ## Website lead capture
 

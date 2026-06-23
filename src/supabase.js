@@ -40,3 +40,43 @@ export async function saveLeads(leads) {
   const { error } = await supabase.from('leads').upsert(rows, { onConflict: 'id' });
   if (error) throw error;
 }
+
+export async function registerTeamMember(user) {
+  const { error } = await supabase.from('team_members').upsert(
+    {
+      user_id: user.id,
+      name: user.name,
+      email: user.email.toLowerCase(),
+      last_seen_at: new Date().toISOString()
+    },
+    { onConflict: 'user_id' }
+  );
+  if (error) throw error;
+}
+
+export async function fetchTeamMembers() {
+  const { data, error } = await supabase
+    .from('team_members')
+    .select('user_id,name,email,last_seen_at')
+    .order('name');
+  if (error) throw error;
+  return data || [];
+}
+
+export async function fetchDeletionNotifications() {
+  const { data, error } = await supabase
+    .from('lead_deletion_notifications')
+    .select('id,lead_id,lead_name,deleted_by_name,deleted_by_email,deleted_at')
+    .order('deleted_at', { ascending: false })
+    .limit(30);
+  if (error) throw error;
+  return data || [];
+}
+
+export async function deleteLeadWithAudit(leadId, actorName) {
+  const { error } = await supabase.rpc('delete_crm_lead', {
+    p_lead_id: leadId,
+    p_actor_name: actorName
+  });
+  if (error) throw error;
+}
