@@ -23,6 +23,7 @@ const STORAGE_KEY = 'yalabyte-crm-leads';
 const SESSION_KEY = 'yalabyte-crm-session';
 const ACCOUNTS_KEY = 'yalabyte-crm-accounts';
 const READ_NOTIFICATIONS_KEY = 'yalabyte-crm-read-notifications';
+const WELCOME_SESSION_KEY = 'yalabyte-crm-welcome-shown';
 const ALLOWED_EMAIL_DOMAIN = 'yalabyte.com';
 
 const stages = [
@@ -228,8 +229,19 @@ function Brand({ compact = false, inverted = false }) {
   );
 }
 
-function WorkspaceLoader({ user }) {
+function WorkspaceLoader({ user, compact = false }) {
   const initials = user?.name?.split(' ').map((part) => part[0]).slice(0, 2).join('') || 'YB';
+  if (compact) {
+    return (
+      <main className="login-shell flex min-h-screen items-center justify-center px-5 text-white">
+        <div className="text-center">
+          <div className="flex justify-center"><Brand compact inverted /></div>
+          <p className="mt-7 text-sm font-semibold text-slate-200">Getting things together…</p>
+          <span className="mx-auto mt-4 block h-1 w-20 overflow-hidden rounded-full bg-white/10"><span className="block h-full w-1/2 animate-pulse rounded-full bg-cyanbrand-400" /></span>
+        </div>
+      </main>
+    );
+  }
   return (
     <main className="login-shell flex min-h-screen items-center justify-center px-5 text-white">
       <div className="text-center">
@@ -544,6 +556,7 @@ export default function CRMApp() {
   const [syncState, setSyncState] = useState('saved');
   const [dataError, setDataError] = useState('');
   const [actionNotice, setActionNotice] = useState('');
+  const [welcomeMode, setWelcomeMode] = useState(() => window.sessionStorage.getItem(WELCOME_SESSION_KEY) ? 'refresh' : 'login');
   const [leads, setLeads] = useState(readLeads);
   const [selectedId, setSelectedId] = useState(() => readLeads()[0]?.id || '');
   const [draft, setDraft] = useState(initialLead);
@@ -579,6 +592,10 @@ export default function CRMApp() {
     const timer = window.setTimeout(() => setActionNotice(''), 10000);
     return () => window.clearTimeout(timer);
   }, [actionNotice]);
+
+  useEffect(() => {
+    if (dataReady && currentUser) window.sessionStorage.setItem(WELCOME_SESSION_KEY, 'true');
+  }, [dataReady, currentUser?.id]);
 
   useEffect(() => {
     if (!currentUser?.id) {
@@ -631,25 +648,27 @@ export default function CRMApp() {
     setDataReady(false);
     setDataError('');
 
+    Promise.allSettled([
+      registerTeamMember(currentUser).then(() => fetchTeamMembers()),
+      fetchDeletionNotifications(),
+      fetchReadNotificationIds()
+    ]).then(([membersResult, notificationsResult, readNotificationsResult]) => {
+      if (!active) return;
+      if (membersResult.status === 'fulfilled') setTeamMembers(membersResult.value);
+      if (notificationsResult.status === 'fulfilled') setNotifications(uniqueNotifications(notificationsResult.value));
+      if (readNotificationsResult.status === 'fulfilled') setReadNotificationIds((current) => Array.from(new Set([...current, ...readNotificationsResult.value])));
+      if (membersResult.status === 'rejected' || notificationsResult.status === 'rejected') {
+        setDataError('Team ownership and audit features require the latest Supabase migration.');
+      }
+    });
+
     fetchLeads()
-      .then(async (remoteLeads) => {
+      .then((remoteLeads) => {
         if (!active) return;
-        const [membersResult, notificationsResult, readNotificationsResult] = await Promise.allSettled([
-          registerTeamMember(currentUser).then(() => fetchTeamMembers()),
-          fetchDeletionNotifications(),
-          fetchReadNotificationIds()
-        ]);
         const nextLeads = remoteLeads.length ? remoteLeads : readLeads();
-        if (!remoteLeads.length && nextLeads.length) await saveLeads(nextLeads);
-        if (!active) return;
         setLeads(nextLeads);
-        if (membersResult.status === 'fulfilled') setTeamMembers(membersResult.value);
-        if (notificationsResult.status === 'fulfilled') setNotifications(uniqueNotifications(notificationsResult.value));
-        if (readNotificationsResult.status === 'fulfilled') setReadNotificationIds((current) => Array.from(new Set([...current, ...readNotificationsResult.value])));
-        if (membersResult.status === 'rejected' || notificationsResult.status === 'rejected') {
-          setDataError('Team ownership and audit features require the latest Supabase migration.');
-        }
         setSelectedId(nextLeads[0]?.id || '');
+        window.sessionStorage.setItem(WELCOME_SESSION_KEY, 'true');
         setDataReady(true);
       })
       .catch((error) => {
@@ -1058,6 +1077,8 @@ export default function CRMApp() {
   const signOut = async () => {
     if (supabase) await supabase.auth.signOut();
     else window.localStorage.removeItem(SESSION_KEY);
+    window.sessionStorage.removeItem(WELCOME_SESSION_KEY);
+    setWelcomeMode('login');
     setCurrentUser(null);
   };
 
@@ -1070,7 +1091,7 @@ export default function CRMApp() {
   }
 
   if (!dataReady) {
-    return <WorkspaceLoader user={currentUser} />;
+    return <WorkspaceLoader compact={welcomeMode === 'refresh'} user={currentUser} />;
   }
 
   const activeTone = stages.find((stage) => stage.id === draft.status)?.tone || stages[0].tone;
