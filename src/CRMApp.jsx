@@ -549,6 +549,12 @@ export default function CRMApp() {
   }, [leads]);
 
   useEffect(() => {
+    if (!actionNotice) return undefined;
+    const timer = window.setTimeout(() => setActionNotice(''), 10000);
+    return () => window.clearTimeout(timer);
+  }, [actionNotice]);
+
+  useEffect(() => {
     if (!currentUser?.id) {
       setReadNotificationIds([]);
       return;
