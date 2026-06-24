@@ -9,6 +9,7 @@ Standalone CRM frontend for the YalaByte team, built with React, Vite, and Tailw
 - Drag-and-drop deal pipeline with mobile stage controls
 - Lead tasks, due-date reminders, attributed calls/emails/meetings/notes, and teammate notifications
 - Lead-to-contact conversion, shared prospect contacts, and contact task assignments
+- Branded PDF invoice generation for won projects, including deposit, final-balance, full, and custom payment schedules
 - Admin/member roles, protected audited deletion, cross-device notification reads, and safe merge-based imports
 - Email, phone, calendar, Cliq, website lead capture, realtime Supabase sync, and JSON backup/export support
 

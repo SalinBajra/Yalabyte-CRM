@@ -1,5 +1,6 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
 import ContactsView from './ContactsView';
+import InvoiceModal from './InvoiceModal';
 import LeadTasks from './LeadTasks';
 import OverviewView from './OverviewView';
 import PipelineBoard from './PipelineBoard';
@@ -578,6 +579,7 @@ export default function CRMApp() {
   const [notificationsOpen, setNotificationsOpen] = useState(false);
   const [deleting, setDeleting] = useState(false);
   const [converting, setConverting] = useState(false);
+  const [invoiceModal, setInvoiceModal] = useState(null);
   const [isCreatingLead, setIsCreatingLead] = useState(false);
   const [activeWorkspace, setActiveWorkspace] = useState('overview');
   const [profileOpen, setProfileOpen] = useState(false);
@@ -991,6 +993,22 @@ export default function CRMApp() {
     } finally {
       setConverting(false);
     }
+  };
+
+  const saveInvoice = (invoice, updating) => {
+    if (!selectedLead) return;
+    const currentInvoices = selectedLead.invoices || [];
+    const invoiceExists = updating || currentInvoices.some((item) => item.id === invoice.id);
+    const invoices = invoiceExists
+      ? currentInvoices.map((item) => item.id === invoice.id ? invoice : item)
+      : [invoice, ...currentInvoices];
+    updateLead(
+      selectedLead.id,
+      { invoices },
+      `${invoiceExists ? 'Updated' : 'Generated'} invoice ${invoice.invoiceNumber} for ${money(invoice.amountDue)}.`,
+      'Invoice'
+    );
+    setActionNotice(`Invoice ${invoice.invoiceNumber} saved and downloaded.`);
   };
 
   const handleDeleteLead = async () => {
@@ -1438,6 +1456,9 @@ export default function CRMApp() {
                         Cancel
                       </button>
                     ) : <>
+                      {draft.status === 'won' ? (
+                        <button className="rounded-md border border-violet-200 bg-violet-50 px-3 py-2.5 text-sm font-bold text-violet-700 hover:bg-violet-100" onClick={() => setInvoiceModal({ invoice: null })} type="button">Create invoice</button>
+                      ) : null}
                       {draft.convertedContactId ? <span className="inline-flex items-center rounded-md bg-emerald-50 px-3 py-2.5 text-xs font-bold text-emerald-700">Contact linked</span> : (
                         <button className="rounded-md border border-cyan-200 bg-cyan-50 px-3 py-2.5 text-sm font-bold text-cyan-800 hover:bg-cyan-100 disabled:opacity-60" disabled={converting} onClick={handleConvertLead} type="button">{converting ? 'Converting…' : 'Convert'}</button>
                       )}
@@ -1617,6 +1638,20 @@ export default function CRMApp() {
               )}
             </div>
             {!isCreatingLead && selectedLead ? <LeadTasks currentUser={currentUser} lead={selectedLead} onActivity={(text, type) => updateLead(selectedLead.id, {}, text, type)} teamMembers={teamMembers} /> : null}
+            {!isCreatingLead && selectedLead?.invoices?.length ? (
+              <div className="mt-6 border-t border-slate-200 pt-5">
+                <div className="flex items-center justify-between gap-3"><div><h3 className="text-base font-semibold">Invoices</h3><p className="mt-0.5 text-xs text-slate-400">Saved PDF billing history</p></div>{selectedLead.status === 'won' ? <button className="rounded-lg bg-violet-50 px-3 py-2 text-xs font-bold text-violet-700 hover:bg-violet-100" onClick={() => setInvoiceModal({ invoice: null })} type="button">New</button> : null}</div>
+                <div className="mt-3 space-y-2">
+                  {selectedLead.invoices.map((invoice) => (
+                    <button className="block w-full rounded-xl border border-slate-200 bg-white p-3 text-left transition hover:border-violet-200 hover:bg-violet-50/40" key={invoice.id} onClick={() => setInvoiceModal({ invoice })} type="button">
+                      <div className="flex items-center justify-between gap-2"><p className="text-sm font-bold text-slate-800">{invoice.invoiceNumber}</p><span className={`rounded-md px-2 py-1 text-[9px] font-extrabold uppercase ${invoice.status === 'paid' ? 'bg-emerald-50 text-emerald-700' : invoice.status === 'cancelled' ? 'bg-rose-50 text-rose-600' : 'bg-violet-50 text-violet-700'}`}>{invoice.status}</span></div>
+                      <div className="mt-1.5 flex items-center justify-between text-xs text-slate-500"><span>{invoice.paymentLabel}</span><strong className="text-slate-700">{money(invoice.amountDue)}</strong></div>
+                      <p className="mt-1 text-[11px] text-slate-400">Issued {formatDate(invoice.issueDate)} · Due {formatDate(invoice.dueDate)}</p>
+                    </button>
+                  ))}
+                </div>
+              </div>
+            ) : null}
           </aside>
         </section>
       </div>
@@ -1634,6 +1669,15 @@ export default function CRMApp() {
             setCurrentUser((current) => ({ ...current, name: updated.name }));
             setProfileOpen(false);
           }}
+        />
+      ) : null}
+      {invoiceModal && selectedLead ? (
+        <InvoiceModal
+          currentUser={currentUser}
+          invoice={invoiceModal.invoice}
+          lead={selectedLead}
+          onClose={() => setInvoiceModal(null)}
+          onSaved={saveInvoice}
         />
       ) : null}
     </main>
