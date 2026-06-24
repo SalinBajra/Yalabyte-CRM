@@ -140,16 +140,17 @@ export async function fetchContacts() {
 }
 
 export async function createContact(contact, user) {
-  const { data, error } = await supabase
-    .from('contacts')
-    .insert({
-      ...contact,
-      created_by: user.id,
-      created_by_name: user.name,
-      created_by_email: user.email
-    })
-    .select()
-    .single();
+  const payload = {
+    ...contact,
+    created_by: user.id,
+    created_by_name: user.name,
+    created_by_email: user.email
+  };
+  let { data, error } = await supabase.from('contacts').insert(payload).select().single();
+  if (error && Object.hasOwn(payload, 'lead_id') && /lead_id/i.test(error.message || '')) {
+    delete payload.lead_id;
+    ({ data, error } = await supabase.from('contacts').insert(payload).select().single());
+  }
   if (error) throw error;
   return data;
 }
@@ -166,24 +167,29 @@ export async function updateContact(contactId, changes) {
 }
 
 export async function convertLeadToContact(lead, user) {
+  let supportsLeadLink = true;
   const { data: linkedContact, error: linkedError } = await supabase
     .from('contacts')
     .select('*')
     .eq('lead_id', lead.id)
     .maybeSingle();
-  if (linkedError) throw linkedError;
+  if (linkedError && /lead_id/i.test(linkedError.message || '')) supportsLeadLink = false;
+  else if (linkedError) throw linkedError;
   if (linkedContact) return { contact: linkedContact, created: false };
 
-  const email = lead.email?.trim().toLowerCase();
-  if (email) {
-    const { data: existingContact, error: existingError } = await supabase
-      .from('contacts')
-      .select('*')
-      .ilike('email', email)
-      .limit(1)
-      .maybeSingle();
-    if (existingError) throw existingError;
-    if (existingContact) return { contact: existingContact, created: false };
+  const { data: contacts, error: contactsError } = await supabase.from('contacts').select('*');
+  if (contactsError) throw contactsError;
+  const email = lead.email?.trim().toLowerCase() || '';
+  const phone = lead.phone?.replace(/\D/g, '') || '';
+  let existingContact = (contacts || []).find((contact) => (
+    (email && contact.email?.trim().toLowerCase() === email)
+    || (phone.length >= 7 && contact.phone?.replace(/\D/g, '') === phone)
+  ));
+  if (existingContact) {
+    if (supportsLeadLink && !existingContact.lead_id) {
+      existingContact = await updateContact(existingContact.id, { lead_id: lead.id });
+    }
+    return { contact: existingContact, created: false };
   }
 
   const contact = await createContact({
@@ -194,7 +200,7 @@ export async function convertLeadToContact(lead, user) {
     role: '',
     source: lead.source || 'Lead conversion',
     notes: [lead.message, lead.notes].filter(Boolean).join('\n\n'),
-    lead_id: lead.id
+    ...(supportsLeadLink ? { lead_id: lead.id } : {})
   }, user);
   return { contact, created: true };
 }

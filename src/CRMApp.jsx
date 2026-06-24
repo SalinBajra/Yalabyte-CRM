@@ -807,6 +807,11 @@ export default function CRMApp() {
 
   const saveDraft = async (event) => {
     event.preventDefault();
+    if (duplicateLead) {
+      setActionNotice('');
+      setDataError(`Lead already created 😊 You can't create a duplicate deal—open ${duplicateLead.name || 'the existing lead'} instead.`);
+      return;
+    }
     if (isCreatingLead) {
       const now = new Date().toISOString();
       const lead = {
@@ -821,15 +826,29 @@ export default function CRMApp() {
       };
       setSyncState('syncing');
       setDataError('');
+      setActionNotice('');
       try {
         if (supabase) await saveLeads([lead]);
-        setLeads((current) => [lead, ...current.filter((item) => item.id !== lead.id)]);
-        setSelectedId(lead.id);
-        setIsCreatingLead(false);
-        setSyncState('saved');
+        let savedLead = lead;
+        let contactError = '';
         if (supabase) {
           try {
-            await notifyCliqNewLead(lead, currentUser);
+            const result = await convertLeadToContact(lead, currentUser);
+            savedLead = { ...lead, convertedContactId: result.contact.id, convertedAt: new Date().toISOString() };
+            await saveLeads([savedLead]);
+          } catch (error) {
+            contactError = error.message || 'Contact creation failed.';
+          }
+        }
+        setLeads((current) => [savedLead, ...current.filter((item) => item.id !== savedLead.id)]);
+        setSelectedId(savedLead.id);
+        setIsCreatingLead(false);
+        setSyncState('saved');
+        if (supabase && !contactError) setActionNotice('Lead and contact created together—no double work needed. 😊');
+        if (contactError) setDataError(`Lead saved, but its contact could not be created: ${contactError}`);
+        if (supabase) {
+          try {
+            await notifyCliqNewLead(savedLead, currentUser);
           } catch {
             setDataError('Lead saved, but the Cliq team notification could not be delivered.');
           }
@@ -1375,8 +1394,8 @@ export default function CRMApp() {
                         </button>
                       ) : null}
                     </>}
-                    <button className="rounded-md bg-slate-950 px-4 py-2.5 text-sm font-bold text-white hover:bg-slate-800" type="submit">
-                      {isCreatingLead ? 'Create Lead' : 'Save Lead'}
+                    <button className="rounded-md bg-slate-950 px-4 py-2.5 text-sm font-bold text-white hover:bg-slate-800 disabled:cursor-not-allowed disabled:opacity-40" disabled={Boolean(duplicateLead)} type="submit">
+                      {duplicateLead ? 'Duplicate found' : isCreatingLead ? 'Create Lead' : 'Save Lead'}
                     </button>
                   </div>
                 </div>
@@ -1404,8 +1423,8 @@ export default function CRMApp() {
                 {duplicateLead ? (
                   <div className="mt-4 flex flex-col gap-3 rounded-xl border border-amber-200 bg-amber-50 px-4 py-3 sm:flex-row sm:items-center sm:justify-between">
                     <div>
-                      <p className="text-sm font-bold text-amber-900">Possible duplicate lead</p>
-                      <p className="mt-0.5 text-xs leading-5 text-amber-700">{duplicateLead.name || 'An existing lead'} already uses this email address or phone number.</p>
+                      <p className="text-sm font-bold text-amber-900">Lead already created 😊</p>
+                      <p className="mt-0.5 text-xs leading-5 text-amber-700">You can't create a duplicate deal. {duplicateLead.name || 'An existing lead'} already uses this email address or phone number.</p>
                     </div>
                     <button
                       className="shrink-0 rounded-lg border border-amber-300 bg-white px-3 py-2 text-xs font-bold text-amber-800 hover:bg-amber-100"
