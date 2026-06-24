@@ -57,7 +57,7 @@ const initialLead = {
   owner: '',
   value: '',
   followUpDate: '',
-  source: 'Manual entry',
+  source: 'Team added',
   message: '',
   notes: ''
 };
@@ -129,7 +129,9 @@ function readLeads() {
     const raw = window.localStorage.getItem(STORAGE_KEY);
     const stored = raw ? JSON.parse(raw) : sampleLeads;
     if (!Array.isArray(stored)) return sampleLeads;
-    return stored.filter((lead, index) => lead?.id && stored.findIndex((item) => item?.id === lead.id) === index);
+    return stored
+      .filter((lead, index) => lead?.id && stored.findIndex((item) => item?.id === lead.id) === index)
+      .map((lead) => ({ ...lead, source: lead.source === 'Manual entry' ? 'Team added' : lead.source }));
   } catch {
     return sampleLeads;
   }
@@ -1053,8 +1055,9 @@ export default function CRMApp() {
       const imported = JSON.parse(await file.text());
       if (!Array.isArray(imported)) throw new Error('The import file must contain a list of leads.');
       const normalized = imported.filter((lead) => lead && typeof lead === 'object').map((lead) => ({
-        ...initialLead,
-        ...lead,
+      ...initialLead,
+      ...lead,
+      source: lead.source === 'Manual entry' ? 'Team added' : lead.source || initialLead.source,
         id: lead.id || createId('lead'),
         createdAt: lead.createdAt || new Date().toISOString(),
         updatedAt: lead.updatedAt || new Date().toISOString(),

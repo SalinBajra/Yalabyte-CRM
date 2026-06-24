@@ -27,7 +27,10 @@ export function toCRMUser(user) {
 export async function fetchLeads() {
   const { data, error } = await supabase.from('leads').select('data').order('updated_at', { ascending: false });
   if (error) throw error;
-  return (data || []).map((row) => row.data);
+  return (data || []).map((row) => ({
+    ...row.data,
+    source: row.data?.source === 'Manual entry' ? 'Team added' : row.data?.source
+  }));
 }
 
 export async function saveLeads(leads) {
