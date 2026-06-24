@@ -2,6 +2,7 @@ import { useEffect, useMemo, useState } from 'react';
 import {
   createContact,
   createContactTask,
+  deleteContact,
   fetchContacts,
   fetchContactTasks,
   setContactTaskStatus,
@@ -114,6 +115,27 @@ export default function ContactsView({ currentUser, teamMembers }) {
     }
   };
 
+  const removeContact = async () => {
+    if (!selectedContact || busy) return;
+    const confirmed = window.confirm(`Delete ${selectedContact.name}? Their contact tasks will also be removed. This cannot be undone.`);
+    if (!confirmed) return;
+    setBusy(true);
+    setStatus({ type: '', message: '' });
+    try {
+      await deleteContact(selectedContact.id);
+      const remaining = contacts.filter((contact) => contact.id !== selectedContact.id);
+      setContacts(remaining);
+      setSelectedId(remaining[0]?.id || '');
+      setTasks([]);
+      setMobilePane('list');
+      setStatus({ type: 'success', message: 'Contact deleted.' });
+    } catch (error) {
+      setStatus({ type: 'error', message: error.message || 'Unable to delete this contact.' });
+    } finally {
+      setBusy(false);
+    }
+  };
+
   const assignTask = async () => {
     const assignee = teamMembers.find((member) => member.user_id === taskDraft.assigneeId);
     if (!selectedContact || !assignee || !taskDraft.title.trim()) {
@@ -195,7 +217,7 @@ export default function ContactsView({ currentUser, teamMembers }) {
               <p className="text-xs font-bold uppercase tracking-[0.14em] text-cyan-700">{isCreating ? 'Unsaved prospect' : 'Contact profile'}</p>
               <h2 className="mt-1 text-2xl font-bold">{isCreating ? 'Add prospect contact' : selectedContact?.name || 'Select a contact'}</h2>
             </div>
-            {(selectedContact || isCreating) ? <div className="flex gap-2">{isCreating ? <button className="rounded-lg border border-slate-200 px-4 py-2 text-sm font-bold" onClick={cancelContact} type="button">Cancel</button> : null}<button className="rounded-lg bg-slate-950 px-4 py-2 text-sm font-bold text-white" disabled={busy}>{isCreating ? 'Save contact' : 'Save changes'}</button></div> : null}
+            {(selectedContact || isCreating) ? <div className="flex gap-2">{isCreating ? <button className="rounded-lg border border-slate-200 px-4 py-2 text-sm font-bold" onClick={cancelContact} type="button">Cancel</button> : <button className="rounded-lg border border-rose-200 bg-white px-4 py-2 text-sm font-bold text-rose-600 hover:bg-rose-50" disabled={busy} onClick={removeContact} type="button">Delete</button>}<button className="rounded-lg bg-slate-950 px-4 py-2 text-sm font-bold text-white" disabled={busy}>{isCreating ? 'Save contact' : 'Save changes'}</button></div> : null}
           </div>
           {(selectedContact || isCreating) ? (
             <>
@@ -207,7 +229,7 @@ export default function ContactsView({ currentUser, teamMembers }) {
               <label className="text-sm font-semibold">Email<input className={inputClass} name="email" type="email" value={draft.email} onChange={changeDraft} /></label>
               <label className="text-sm font-semibold">Phone<input className={inputClass} name="phone" value={draft.phone} onChange={changeDraft} /></label>
               <label className="text-sm font-semibold">Role / designation<input className={inputClass} name="role" value={draft.role} onChange={changeDraft} /></label>
-              <label className="text-sm font-semibold">Source<select className={inputClass} name="source" value={draft.source} onChange={changeDraft}>{Array.from(new Set(['Prospect', 'Website', 'Referral', 'Networking', 'Existing client', draft.source].filter(Boolean))).map((source) => <option key={source}>{source}</option>)}</select></label>
+              <label className="text-sm font-semibold">Source<select className={inputClass} name="source" value={draft.source} onChange={changeDraft}>{Array.from(new Set(['Prospect', 'Website', 'Team added', 'Referral', 'Networking', 'Existing client', draft.source === 'Manual entry' ? 'Team added' : draft.source].filter(Boolean))).map((source) => <option key={source}>{source}</option>)}</select></label>
               <label className="text-sm font-semibold md:col-span-2">Notes<textarea className={`${inputClass} min-h-24`} name="notes" value={draft.notes} onChange={changeDraft} /></label>
             </div></>
           ) : <p className="py-16 text-center text-sm text-slate-500">Choose a contact or add a new prospect.</p>}

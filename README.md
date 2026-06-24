@@ -51,6 +51,7 @@ Add `crm.yalabyte.com` under the Vercel project's domains, then configure the CN
    - [`supabase/migrations/202606230003_contacts_and_team_tasks.sql`](supabase/migrations/202606230003_contacts_and_team_tasks.sql)
    - [`supabase/migrations/202606230004_team_profiles_and_avatars.sql`](supabase/migrations/202606230004_team_profiles_and_avatars.sql)
    - [`supabase/migrations/202606240001_operational_crm.sql`](supabase/migrations/202606240001_operational_crm.sql)
+   - [`supabase/migrations/202606240002_contact_deletion.sql`](supabase/migrations/202606240002_contact_deletion.sql)
 3. In Authentication settings, add `https://crm.yalabyte.com` as the Site URL and redirect URL.
 4. Copy `.env.example` to `.env` for local development and add the project values.
 5. Add the same variables in Vercel Project Settings → Environment Variables:

@@ -146,7 +146,10 @@ export async function deleteLeadWithAudit(leadId, actorName) {
 export async function fetchContacts() {
   const { data, error } = await supabase.from('contacts').select('*').order('updated_at', { ascending: false });
   if (error) throw error;
-  return data || [];
+  return (data || []).map((contact) => ({
+    ...contact,
+    source: contact.source === 'Manual entry' ? 'Team added' : contact.source
+  }));
 }
 
 export async function createContact(contact, user) {
@@ -174,6 +177,11 @@ export async function updateContact(contactId, changes) {
     .single();
   if (error) throw error;
   return data;
+}
+
+export async function deleteContact(contactId) {
+  const { error } = await supabase.from('contacts').delete().eq('id', contactId);
+  if (error) throw error;
 }
 
 export async function convertLeadToContact(lead, user) {
