@@ -1,11 +1,17 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
 import ContactsView from './ContactsView';
+import LeadTasks from './LeadTasks';
+import OverviewView from './OverviewView';
+import PipelineBoard from './PipelineBoard';
 import ProfileModal from './ProfileModal';
 import {
+  convertLeadToContact,
   deleteLeadWithAudit,
   fetchDeletionNotifications,
   fetchLeads,
+  fetchReadNotificationIds,
   fetchTeamMembers,
+  markDeletionNotificationsRead,
   notifyCliqNewLead,
   registerTeamMember,
   saveLeads,
@@ -120,7 +126,9 @@ function createId(prefix) {
 function readLeads() {
   try {
     const raw = window.localStorage.getItem(STORAGE_KEY);
-    return raw ? JSON.parse(raw) : sampleLeads;
+    const stored = raw ? JSON.parse(raw) : sampleLeads;
+    if (!Array.isArray(stored)) return sampleLeads;
+    return stored.filter((lead, index) => lead?.id && stored.findIndex((item) => item?.id === lead.id) === index);
   } catch {
     return sampleLeads;
   }
@@ -509,6 +517,7 @@ export default function CRMApp() {
   const [dataReady, setDataReady] = useState(false);
   const [syncState, setSyncState] = useState('saved');
   const [dataError, setDataError] = useState('');
+  const [actionNotice, setActionNotice] = useState('');
   const [leads, setLeads] = useState(readLeads);
   const [selectedId, setSelectedId] = useState(() => readLeads()[0]?.id || '');
   const [draft, setDraft] = useState(initialLead);
@@ -521,13 +530,15 @@ export default function CRMApp() {
   const [mobilePane, setMobilePane] = useState('list');
   const [mobileFiltersOpen, setMobileFiltersOpen] = useState(false);
   const [note, setNote] = useState('');
+  const [activityType, setActivityType] = useState('Note');
   const [teamMembers, setTeamMembers] = useState([]);
   const [notifications, setNotifications] = useState([]);
   const [readNotificationIds, setReadNotificationIds] = useState([]);
   const [notificationsOpen, setNotificationsOpen] = useState(false);
   const [deleting, setDeleting] = useState(false);
+  const [converting, setConverting] = useState(false);
   const [isCreatingLead, setIsCreatingLead] = useState(false);
-  const [activeWorkspace, setActiveWorkspace] = useState('leads');
+  const [activeWorkspace, setActiveWorkspace] = useState('overview');
   const [profileOpen, setProfileOpen] = useState(false);
   const importInputRef = useRef(null);
 
@@ -591,9 +602,10 @@ export default function CRMApp() {
     fetchLeads()
       .then(async (remoteLeads) => {
         if (!active) return;
-        const [membersResult, notificationsResult] = await Promise.allSettled([
+        const [membersResult, notificationsResult, readNotificationsResult] = await Promise.allSettled([
           registerTeamMember(currentUser).then(() => fetchTeamMembers()),
-          fetchDeletionNotifications()
+          fetchDeletionNotifications(),
+          fetchReadNotificationIds()
         ]);
         const nextLeads = remoteLeads.length ? remoteLeads : readLeads();
         if (!remoteLeads.length && nextLeads.length) await saveLeads(nextLeads);
@@ -601,6 +613,7 @@ export default function CRMApp() {
         setLeads(nextLeads);
         if (membersResult.status === 'fulfilled') setTeamMembers(membersResult.value);
         if (notificationsResult.status === 'fulfilled') setNotifications(notificationsResult.value);
+        if (readNotificationsResult.status === 'fulfilled') setReadNotificationIds((current) => Array.from(new Set([...current, ...readNotificationsResult.value])));
         if (membersResult.status === 'rejected' || notificationsResult.status === 'rejected') {
           setDataError('Team ownership and audit features require the latest Supabase migration.');
         }
@@ -675,7 +688,7 @@ export default function CRMApp() {
     } else {
       setDraft(initialLead);
     }
-  }, [selectedLead?.id, isCreatingLead]);
+  }, [selectedLead?.id, selectedLead?.updatedAt, isCreatingLead]);
 
   const filteredLeads = useMemo(() => {
     const normalizedQuery = query.trim().toLowerCase();
@@ -738,13 +751,13 @@ export default function CRMApp() {
     return { total: leads.length, open, totalValue, dueToday };
   }, [leads]);
 
-  const updateLead = (id, changes, activityText = '') => {
+  const updateLead = (id, changes, activityText = '', type = 'Update') => {
     const now = new Date().toISOString();
     setLeads((current) =>
       current.map((lead) => {
         if (lead.id !== id) return lead;
         const activity = activityText
-          ? [{ id: createId('activity'), type: 'Update', text: activityText, at: now }, ...(lead.activities || [])]
+          ? [{ id: createId('activity'), type, text: activityText, at: now, by: currentUser?.name || 'Team member', byEmail: currentUser?.email || '' }, ...(lead.activities || [])]
           : lead.activities || [];
         return { ...lead, ...changes, updatedAt: now, activities: activity };
       })
@@ -770,6 +783,28 @@ export default function CRMApp() {
     }
   };
 
+  const addFollowUpToCalendar = () => {
+    if (!selectedLead?.followUpDate) return;
+    const start = selectedLead.followUpDate.replaceAll('-', '');
+    const endDate = new Date(`${selectedLead.followUpDate}T12:00:00`);
+    endDate.setDate(endDate.getDate() + 1);
+    const end = endDate.toISOString().slice(0, 10).replaceAll('-', '');
+    const clean = (value) => String(value || '').replaceAll('\\', '\\\\').replaceAll(',', '\\,').replaceAll('\n', '\\n');
+    const calendar = [
+      'BEGIN:VCALENDAR', 'VERSION:2.0', 'PRODID:-//YalaByte CRM//EN', 'BEGIN:VEVENT',
+      `UID:${selectedLead.id}@crm.yalabyte.com`, `DTSTART;VALUE=DATE:${start}`, `DTEND;VALUE=DATE:${end}`,
+      `SUMMARY:${clean(`Follow up with ${selectedLead.name}`)}`,
+      `DESCRIPTION:${clean([selectedLead.company, selectedLead.service, selectedLead.phone, selectedLead.email].filter(Boolean).join(' · '))}`,
+      'END:VEVENT', 'END:VCALENDAR'
+    ].join('\r\n');
+    const url = URL.createObjectURL(new Blob([calendar], { type: 'text/calendar' }));
+    const anchor = document.createElement('a');
+    anchor.href = url;
+    anchor.download = `follow-up-${selectedLead.name || 'lead'}.ics`;
+    anchor.click();
+    URL.revokeObjectURL(url);
+  };
+
   const saveDraft = async (event) => {
     event.preventDefault();
     if (isCreatingLead) {
@@ -782,13 +817,13 @@ export default function CRMApp() {
         owner: draft.owner || currentUser?.name || '',
         createdAt: now,
         updatedAt: now,
-        activities: [{ id: createId('activity'), type: 'Created', text: 'Lead created manually.', at: now }]
+        activities: [{ id: createId('activity'), type: 'Created', text: 'Lead created manually.', at: now, by: currentUser.name, byEmail: currentUser.email }]
       };
       setSyncState('syncing');
       setDataError('');
       try {
         if (supabase) await saveLeads([lead]);
-        setLeads((current) => [lead, ...current]);
+        setLeads((current) => [lead, ...current.filter((item) => item.id !== lead.id)]);
         setSelectedId(lead.id);
         setIsCreatingLead(false);
         setSyncState('saved');
@@ -816,6 +851,7 @@ export default function CRMApp() {
     });
     setSelectedId('');
     setIsCreatingLead(true);
+    setActiveWorkspace('leads');
     setMobilePane('detail');
   };
 
@@ -828,7 +864,7 @@ export default function CRMApp() {
 
   const addActivity = () => {
     if (!selectedLead || !note.trim()) return;
-    updateLead(selectedLead.id, {}, note.trim());
+    updateLead(selectedLead.id, {}, note.trim(), activityType);
     setNote('');
   };
 
@@ -843,8 +879,51 @@ export default function CRMApp() {
     updateLead(selectedLead.id, { status }, `Status changed to ${label}.`);
   };
 
+  const moveLeadToStage = (leadId, status) => {
+    if (!status) return;
+    const lead = leads.find((item) => item.id === leadId);
+    if (!lead || lead.status === status) return;
+    const label = stages.find((stage) => stage.id === status)?.label || status;
+    updateLead(leadId, { status }, `Moved to ${label} from the pipeline.`, 'Stage');
+  };
+
+  const openLeadWorkspace = (leadId) => {
+    setIsCreatingLead(false);
+    setSelectedId(leadId);
+    setActiveWorkspace('leads');
+    setMobilePane('detail');
+  };
+
+  const handleConvertLead = async () => {
+    if (!selectedLead || converting || selectedLead.convertedContactId) return;
+    if (!supabase) {
+      setDataError('Lead conversion requires the shared Supabase workspace.');
+      return;
+    }
+    setConverting(true);
+    setDataError('');
+    setActionNotice('');
+    try {
+      const result = await convertLeadToContact(selectedLead, currentUser);
+      updateLead(selectedLead.id, {
+        convertedContactId: result.contact.id,
+        convertedAt: new Date().toISOString()
+      }, result.created ? 'Converted lead into a contact.' : 'Linked lead to an existing contact.', 'Conversion');
+      setActionNotice(result.created ? 'Contact created successfully.' : 'This lead was linked to an existing contact.');
+    } catch (error) {
+      setDataError(error.message || 'Unable to convert this lead.');
+    } finally {
+      setConverting(false);
+    }
+  };
+
   const handleDeleteLead = async () => {
     if (!selectedLead || deleting) return;
+    const actorProfile = teamMembers.find((member) => member.user_id === currentUser.id);
+    if (actorProfile?.role && actorProfile.role !== 'admin') {
+      setDataError('Only CRM admins can delete leads.');
+      return;
+    }
     const confirmed = window.confirm(
       `Delete ${selectedLead.name || 'this lead'}? A protected audit copy and deletion notification will be retained.`
     );
@@ -894,20 +973,31 @@ export default function CRMApp() {
   const importLeads = async (event) => {
     const file = event.target.files?.[0];
     if (!file) return;
-    const text = await file.text();
-    const imported = JSON.parse(text);
-    if (!Array.isArray(imported)) return;
-    const normalized = imported.map((lead) => ({
-      ...initialLead,
-      ...lead,
-      id: lead.id || createId('lead'),
-      createdAt: lead.createdAt || new Date().toISOString(),
-      updatedAt: lead.updatedAt || new Date().toISOString(),
-      activities: Array.isArray(lead.activities) ? lead.activities : []
-    }));
-    setLeads(normalized);
-    setSelectedId(normalized[0]?.id || '');
-    event.target.value = '';
+    setDataError('');
+    setActionNotice('');
+    try {
+      const imported = JSON.parse(await file.text());
+      if (!Array.isArray(imported)) throw new Error('The import file must contain a list of leads.');
+      const normalized = imported.filter((lead) => lead && typeof lead === 'object').map((lead) => ({
+        ...initialLead,
+        ...lead,
+        id: lead.id || createId('lead'),
+        createdAt: lead.createdAt || new Date().toISOString(),
+        updatedAt: lead.updatedAt || new Date().toISOString(),
+        activities: Array.isArray(lead.activities) ? lead.activities : []
+      }));
+      setLeads((current) => {
+        const merged = new Map(current.map((lead) => [lead.id, lead]));
+        normalized.forEach((lead) => merged.set(lead.id, { ...merged.get(lead.id), ...lead }));
+        return Array.from(merged.values()).sort((left, right) => new Date(right.updatedAt || 0) - new Date(left.updatedAt || 0));
+      });
+      setSelectedId(normalized[0]?.id || selectedId);
+      setActionNotice(`${normalized.length} lead${normalized.length === 1 ? '' : 's'} imported safely. Existing records were merged, not replaced.`);
+    } catch (error) {
+      setDataError(error.message || 'Unable to import this file.');
+    } finally {
+      event.target.value = '';
+    }
   };
 
   const signOut = async () => {
@@ -934,14 +1024,22 @@ export default function CRMApp() {
   const stageCounts = Object.fromEntries(stages.map((stage) => [stage.id, leads.filter((lead) => lead.status === stage.id).length]));
   const activeFilterCount = Number(Boolean(query.trim())) + Number(stageFilter !== 'all') + Number(ownerFilter !== 'all') + Number(followUpFilter !== 'all');
   const currentProfile = teamMembers.find((member) => member.user_id === currentUser.id);
+  const canDeleteLeads = !currentProfile?.role || currentProfile.role === 'admin';
   const profileStatusTone = currentProfile?.status === 'busy' ? 'bg-rose-500' : currentProfile?.status === 'away' ? 'bg-amber-400' : currentProfile?.status === 'offline' ? 'bg-slate-400' : 'bg-emerald-500';
   const readNotificationIdSet = new Set(readNotificationIds);
   const unreadNotificationCount = notifications.filter((notification) => !readNotificationIdSet.has(notification.id)).length;
 
-  const markAllNotificationsRead = () => {
+  const markAllNotificationsRead = async () => {
     const nextIds = Array.from(new Set([...readNotificationIds, ...notifications.map((notification) => notification.id)]));
     setReadNotificationIds(nextIds);
     window.localStorage.setItem(`${READ_NOTIFICATIONS_KEY}:${currentUser.id}`, JSON.stringify(nextIds));
+    if (supabase) {
+      try {
+        await markDeletionNotificationsRead(notifications.map((notification) => notification.id), currentUser.id);
+      } catch {
+        setDataError('Notifications were cleared here, but could not sync across devices.');
+      }
+    }
   };
 
   return (
@@ -950,9 +1048,10 @@ export default function CRMApp() {
         <div className="mx-auto flex max-w-[1500px] flex-col gap-2.5 px-3 py-2.5 sm:gap-4 sm:px-6 sm:py-3.5 lg:flex-row lg:items-center lg:justify-between">
           <div className="flex flex-wrap items-center gap-5">
             <Brand compact />
-            <nav className="flex rounded-xl border border-slate-200/80 bg-slate-100/80 p-1" aria-label="CRM workspace">
-              <button className={`rounded-lg px-3.5 py-2 text-sm font-bold transition ${activeWorkspace === 'leads' ? 'bg-white text-slate-950 shadow-sm' : 'text-slate-500 hover:text-slate-800'}`} onClick={() => setActiveWorkspace('leads')} type="button">Leads</button>
-              <button className={`rounded-lg px-3.5 py-2 text-sm font-bold transition ${activeWorkspace === 'contacts' ? 'bg-white text-slate-950 shadow-sm' : 'text-slate-500 hover:text-slate-800'}`} onClick={() => setActiveWorkspace('contacts')} type="button">Contacts</button>
+            <nav className="flex max-w-full overflow-x-auto rounded-xl border border-slate-200/80 bg-slate-100/80 p-1" aria-label="CRM workspace">
+              {[['overview', 'Overview'], ['leads', 'Leads'], ['pipeline', 'Pipeline'], ['contacts', 'Contacts']].map(([workspace, label]) => (
+                <button className={`whitespace-nowrap rounded-lg px-3 py-2 text-xs font-bold transition sm:px-3.5 sm:text-sm ${activeWorkspace === workspace ? 'bg-white text-slate-950 shadow-sm' : 'text-slate-500 hover:text-slate-800'}`} key={workspace} onClick={() => setActiveWorkspace(workspace)} type="button">{label}</button>
+              ))}
             </nav>
           </div>
           <div className="flex flex-wrap items-center gap-2">
@@ -1045,16 +1144,31 @@ export default function CRMApp() {
         </div> : null}
       </div>
 
-      {activeWorkspace === 'contacts' ? (
-        <ContactsView currentUser={currentUser} teamMembers={teamMembers} />
-      ) : (
-        <>
       {dataError ? (
         <div className="mx-auto mt-4 max-w-[1500px] px-4 sm:px-6">
           <p className="rounded-lg border border-red-200 bg-red-50 px-4 py-3 text-sm font-medium text-red-700">{dataError}</p>
         </div>
       ) : null}
+      {actionNotice ? (
+        <div className="mx-auto mt-4 max-w-[1500px] px-4 sm:px-6">
+          <p className="rounded-lg border border-emerald-200 bg-emerald-50 px-4 py-3 text-sm font-medium text-emerald-700">{actionNotice}</p>
+        </div>
+      ) : null}
 
+      {activeWorkspace === 'overview' ? (
+        <OverviewView
+          currentUser={currentUser}
+          leads={leads}
+          onOpenLead={openLeadWorkspace}
+          onTeamChanged={() => fetchTeamMembers().then(setTeamMembers).catch(() => {})}
+          teamMembers={teamMembers}
+        />
+      ) : activeWorkspace === 'pipeline' ? (
+        <PipelineBoard leads={leads} stages={stages} onMove={moveLeadToStage} onOpenLead={openLeadWorkspace} />
+      ) : activeWorkspace === 'contacts' ? (
+        <ContactsView currentUser={currentUser} teamMembers={teamMembers} />
+      ) : (
+        <>
       <div className="mx-auto grid max-w-[1500px] gap-3 px-3 py-3 sm:gap-5 sm:px-6 sm:py-5 xl:grid-cols-[360px_1fr]">
         <aside className={`${mobilePane === 'detail' ? 'hidden md:block' : 'block'} overflow-hidden rounded-xl border border-slate-200/90 bg-white shadow-card sm:rounded-2xl`}>
           <div className="border-b border-slate-200 p-4">
@@ -1233,7 +1347,7 @@ export default function CRMApp() {
                       {isCreatingLead ? 'Nothing is saved to the database until you create this lead.' : `Created ${formatDate(draft.createdAt)} from ${draft.source || 'Unknown source'}`}
                     </p>
                   </div>
-                  <div className="flex gap-2">
+                  <div className="flex flex-wrap gap-2">
                     {isCreatingLead ? (
                       <button
                         className="rounded-md border border-slate-200 bg-white px-4 py-2.5 text-sm font-bold text-slate-600 hover:bg-slate-50"
@@ -1242,16 +1356,21 @@ export default function CRMApp() {
                       >
                         Cancel
                       </button>
-                    ) : (
-                      <button
-                        className="rounded-md border border-rose-200 bg-white px-4 py-2.5 text-sm font-bold text-rose-600 hover:bg-rose-50 disabled:cursor-wait disabled:opacity-60"
-                        disabled={deleting}
-                        onClick={handleDeleteLead}
-                        type="button"
-                      >
-                        {deleting ? 'Deleting…' : 'Delete'}
-                      </button>
-                    )}
+                    ) : <>
+                      {draft.convertedContactId ? <span className="inline-flex items-center rounded-md bg-emerald-50 px-3 py-2.5 text-xs font-bold text-emerald-700">Contact linked</span> : (
+                        <button className="rounded-md border border-cyan-200 bg-cyan-50 px-3 py-2.5 text-sm font-bold text-cyan-800 hover:bg-cyan-100 disabled:opacity-60" disabled={converting} onClick={handleConvertLead} type="button">{converting ? 'Converting…' : 'Convert'}</button>
+                      )}
+                      {canDeleteLeads ? (
+                        <button
+                          className="rounded-md border border-rose-200 bg-white px-3 py-2.5 text-sm font-bold text-rose-600 hover:bg-rose-50 disabled:cursor-wait disabled:opacity-60"
+                          disabled={deleting}
+                          onClick={handleDeleteLead}
+                          type="button"
+                        >
+                          {deleting ? 'Deleting…' : 'Delete'}
+                        </button>
+                      ) : null}
+                    </>}
                     <button className="rounded-md bg-slate-950 px-4 py-2.5 text-sm font-bold text-white hover:bg-slate-800" type="submit">
                       {isCreatingLead ? 'Create Lead' : 'Save Lead'}
                     </button>
@@ -1262,7 +1381,7 @@ export default function CRMApp() {
                   <div className="mt-4 flex flex-wrap items-center gap-2 rounded-xl border border-slate-200 bg-slate-50/80 p-2.5">
                     <span className="mr-auto w-full px-1.5 text-xs font-semibold text-slate-500 sm:w-auto">Quick contact</span>
                     {draft.email ? (
-                      <a className="flex-1 rounded-lg border border-slate-200 bg-white px-3 py-2 text-center text-xs font-bold text-slate-700 shadow-sm transition hover:border-cyan-200 hover:text-cyan-700 sm:flex-none" href={`mailto:${draft.email}`}>
+                      <a className="flex-1 rounded-lg border border-slate-200 bg-white px-3 py-2 text-center text-xs font-bold text-slate-700 shadow-sm transition hover:border-cyan-200 hover:text-cyan-700 sm:flex-none" href={`mailto:${draft.email}?subject=${encodeURIComponent(`Following up from YalaByte${draft.company ? ` — ${draft.company}` : ''}`)}&body=${encodeURIComponent(`Hi ${draft.name || 'there'},\n\n`)}`}>
                         Email lead
                       </a>
                     ) : null}
@@ -1274,6 +1393,7 @@ export default function CRMApp() {
                     <button className="flex-1 rounded-lg border border-slate-200 bg-white px-3 py-2 text-xs font-bold text-slate-700 shadow-sm transition hover:border-cyan-200 hover:text-cyan-700 sm:flex-none" onClick={copyLeadContact} type="button">
                       {copiedLeadId === selectedLead?.id ? 'Copied!' : 'Copy details'}
                     </button>
+                    {draft.followUpDate ? <button className="flex-1 rounded-lg border border-slate-200 bg-white px-3 py-2 text-xs font-bold text-slate-700 shadow-sm transition hover:border-cyan-200 hover:text-cyan-700 sm:flex-none" onClick={addFollowUpToCalendar} type="button">Add to calendar</button> : null}
                   </div>
                 ) : null}
 
@@ -1388,6 +1508,12 @@ export default function CRMApp() {
                 <p className="mt-3 rounded-lg bg-slate-50 px-3 py-3 text-sm leading-6 text-slate-500">Activity tracking begins after the lead is created.</p>
               ) : (
                 <>
+                  <div className="mt-3 grid grid-cols-[110px_1fr] gap-2">
+                    <select className="rounded-lg border border-slate-200 bg-white px-2.5 py-2 text-xs font-bold text-slate-600 outline-none focus:border-cyanbrand-500" value={activityType} onChange={(event) => setActivityType(event.target.value)}>
+                      <option>Note</option><option>Call</option><option>Email</option><option>Meeting</option>
+                    </select>
+                    <span className="self-center text-right text-[11px] font-medium text-slate-400">Logged as {currentUser.name}</span>
+                  </div>
                   <textarea
                     className={`${fieldClass()} min-h-24`}
                     placeholder="Add progress note"
@@ -1395,13 +1521,13 @@ export default function CRMApp() {
                     onChange={(event) => setNote(event.target.value)}
                   />
                   <button className="mt-2 w-full rounded-md bg-cyanbrand-500 px-3 py-2 text-sm font-bold text-slate-950 hover:bg-cyanbrand-400" onClick={addActivity} type="button">
-                    Add Note
+                    Add {activityType}
                   </button>
                   <div className="mt-4 space-y-3">
                     {(selectedLead?.activities || []).map((activity) => (
                       <div key={activity.id} className="rounded-md border border-slate-200 bg-slate-50 p-3">
                         <p className="text-sm font-semibold text-slate-950">{activity.text}</p>
-                        <p className="mt-1 text-xs text-slate-500">{formatDate(activity.at)}</p>
+                        <p className="mt-1 text-xs text-slate-500">{activity.type || 'Update'} · {activity.by || 'Team member'} · {formatDate(activity.at)}</p>
                       </div>
                     ))}
                     {!selectedLead?.activities?.length ? <p className="text-sm text-slate-500">No activity yet.</p> : null}
@@ -1409,6 +1535,7 @@ export default function CRMApp() {
                 </>
               )}
             </div>
+            {!isCreatingLead && selectedLead ? <LeadTasks currentUser={currentUser} lead={selectedLead} onActivity={(text, type) => updateLead(selectedLead.id, {}, text, type)} teamMembers={teamMembers} /> : null}
           </aside>
         </section>
       </div>

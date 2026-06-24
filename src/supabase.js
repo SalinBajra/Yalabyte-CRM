@@ -32,7 +32,8 @@ export async function fetchLeads() {
 
 export async function saveLeads(leads) {
   if (!leads.length) return;
-  const rows = leads.map((lead) => ({
+  const uniqueLeads = Array.from(new Map(leads.filter((lead) => lead?.id).map((lead) => [lead.id, lead])).values());
+  const rows = uniqueLeads.map((lead) => ({
     id: lead.id,
     data: lead,
     updated_at: lead.updatedAt || new Date().toISOString()
@@ -107,6 +108,23 @@ export async function fetchDeletionNotifications() {
   return data || [];
 }
 
+export async function fetchReadNotificationIds() {
+  const { data, error } = await supabase
+    .from('notification_reads')
+    .select('notification_id');
+  if (error) throw error;
+  return (data || []).map((row) => row.notification_id);
+}
+
+export async function markDeletionNotificationsRead(notificationIds, userId) {
+  if (!notificationIds.length) return;
+  const { error } = await supabase.from('notification_reads').upsert(
+    notificationIds.map((notificationId) => ({ user_id: userId, notification_id: notificationId })),
+    { onConflict: 'user_id,notification_id' }
+  );
+  if (error) throw error;
+}
+
 export async function deleteLeadWithAudit(leadId, actorName) {
   const { error } = await supabase.rpc('delete_crm_lead', {
     p_lead_id: leadId,
@@ -145,6 +163,99 @@ export async function updateContact(contactId, changes) {
     .single();
   if (error) throw error;
   return data;
+}
+
+export async function convertLeadToContact(lead, user) {
+  const { data: linkedContact, error: linkedError } = await supabase
+    .from('contacts')
+    .select('*')
+    .eq('lead_id', lead.id)
+    .maybeSingle();
+  if (linkedError) throw linkedError;
+  if (linkedContact) return { contact: linkedContact, created: false };
+
+  const email = lead.email?.trim().toLowerCase();
+  if (email) {
+    const { data: existingContact, error: existingError } = await supabase
+      .from('contacts')
+      .select('*')
+      .ilike('email', email)
+      .limit(1)
+      .maybeSingle();
+    if (existingError) throw existingError;
+    if (existingContact) return { contact: existingContact, created: false };
+  }
+
+  const contact = await createContact({
+    name: lead.name || 'Unnamed contact',
+    email: lead.email || '',
+    phone: lead.phone || '',
+    company: lead.company || '',
+    role: '',
+    source: lead.source || 'Lead conversion',
+    notes: [lead.message, lead.notes].filter(Boolean).join('\n\n'),
+    lead_id: lead.id
+  }, user);
+  return { contact, created: true };
+}
+
+export async function fetchLeadTasks(leadId) {
+  const { data, error } = await supabase
+    .from('lead_tasks')
+    .select('*')
+    .eq('lead_id', leadId)
+    .order('status')
+    .order('due_date', { ascending: true, nullsFirst: false });
+  if (error) throw error;
+  return data || [];
+}
+
+export async function fetchAllLeadTasks() {
+  const { data, error } = await supabase
+    .from('lead_tasks')
+    .select('*')
+    .order('status')
+    .order('due_date', { ascending: true, nullsFirst: false });
+  if (error) throw error;
+  return data || [];
+}
+
+export async function createLeadTask(task, leadId, assignee, user) {
+  const { data, error } = await supabase
+    .from('lead_tasks')
+    .insert({
+      lead_id: leadId,
+      title: task.title.trim(),
+      description: task.description.trim(),
+      due_date: task.dueDate || null,
+      priority: task.priority || 'medium',
+      assigned_to: assignee.user_id,
+      assigned_to_name: assignee.name,
+      assigned_to_email: assignee.email,
+      assigned_by: user.id,
+      assigned_by_name: user.name,
+      assigned_by_email: user.email
+    })
+    .select()
+    .single();
+  if (error) throw error;
+  return data;
+}
+
+export async function setLeadTaskStatus(taskId, status) {
+  const { error } = await supabase
+    .from('lead_tasks')
+    .update({ status, completed_at: status === 'done' ? new Date().toISOString() : null })
+    .eq('id', taskId);
+  if (error) throw error;
+}
+
+export async function setTeamMemberRole(userId, role) {
+  const { error } = await supabase.rpc('set_team_member_role', {
+    p_user_id: userId,
+    p_role: role
+  });
+  if (error) throw error;
 }
 
 export async function fetchContactTasks(contactId) {

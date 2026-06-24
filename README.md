@@ -2,6 +2,16 @@
 
 Standalone CRM frontend for the YalaByte team, built with React, Vite, and Tailwind CSS.
 
+## CRM capabilities
+
+- Focused Overview with pipeline health, conversion, overdue follow-ups, personal tasks, sources, and owner workload
+- Searchable lead workspace with ownership, stage, follow-up, sorting, duplicate detection, and mobile list/detail navigation
+- Drag-and-drop deal pipeline with mobile stage controls
+- Lead tasks, due-date reminders, attributed calls/emails/meetings/notes, and teammate notifications
+- Lead-to-contact conversion, shared prospect contacts, and contact task assignments
+- Admin/member roles, protected audited deletion, cross-device notification reads, and safe merge-based imports
+- Email, phone, calendar, Cliq, website lead capture, realtime Supabase sync, and JSON backup/export support
+
 ## Local development
 
 ```bash
@@ -39,6 +49,7 @@ Add `crm.yalabyte.com` under the Vercel project's domains, then configure the CN
    - [`supabase/migrations/202606230002_team_members_and_lead_audit.sql`](supabase/migrations/202606230002_team_members_and_lead_audit.sql)
    - [`supabase/migrations/202606230003_contacts_and_team_tasks.sql`](supabase/migrations/202606230003_contacts_and_team_tasks.sql)
    - [`supabase/migrations/202606230004_team_profiles_and_avatars.sql`](supabase/migrations/202606230004_team_profiles_and_avatars.sql)
+   - [`supabase/migrations/202606240001_operational_crm.sql`](supabase/migrations/202606240001_operational_crm.sql)
 3. In Authentication settings, add `https://crm.yalabyte.com` as the Site URL and redirect URL.
 4. Copy `.env.example` to `.env` for local development and add the project values.
 5. Add the same variables in Vercel Project Settings → Environment Variables:

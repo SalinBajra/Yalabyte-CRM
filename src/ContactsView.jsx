@@ -28,6 +28,7 @@ export default function ContactsView({ currentUser, teamMembers }) {
   const [taskDraft, setTaskDraft] = useState(emptyTask);
   const [status, setStatus] = useState({ type: '', message: '' });
   const [busy, setBusy] = useState(false);
+  const [mobilePane, setMobilePane] = useState('list');
 
   const selectedContact = isCreating ? null : contacts.find((contact) => contact.id === selectedId) || null;
   const filteredContacts = useMemo(() => {
@@ -37,6 +38,10 @@ export default function ContactsView({ currentUser, teamMembers }) {
       .filter(Boolean)
       .some((value) => value.toLowerCase().includes(needle)));
   }, [contacts, query]);
+  const duplicateContact = useMemo(() => contacts.find((contact) => contact.id !== selectedContact?.id && (
+    (draft.email.trim() && contact.email?.trim().toLowerCase() === draft.email.trim().toLowerCase())
+    || (draft.phone.replace(/\D/g, '').length >= 7 && contact.phone?.replace(/\D/g, '') === draft.phone.replace(/\D/g, ''))
+  )), [contacts, draft.email, draft.phone, selectedContact?.id]);
 
   useEffect(() => {
     fetchContacts()
@@ -73,11 +78,13 @@ export default function ContactsView({ currentUser, teamMembers }) {
     setDraft(emptyContact);
     setTasks([]);
     setStatus({ type: '', message: '' });
+    setMobilePane('detail');
   };
 
   const cancelContact = () => {
     setIsCreating(false);
     setSelectedId(contacts[0]?.id || '');
+    setMobilePane('list');
   };
 
   const saveContact = async (event) => {
@@ -155,8 +162,8 @@ export default function ContactsView({ currentUser, teamMembers }) {
   };
 
   return (
-    <div className="mx-auto grid max-w-[1500px] gap-5 px-4 py-5 sm:px-6 xl:grid-cols-[340px_1fr]">
-      <aside className="overflow-hidden rounded-2xl border border-slate-200/90 bg-white shadow-card">
+    <div className="mx-auto grid max-w-[1500px] gap-3 px-3 py-3 sm:gap-5 sm:px-6 sm:py-5 xl:grid-cols-[340px_1fr]">
+      <aside className={`${mobilePane === 'detail' ? 'hidden md:block' : 'block'} overflow-hidden rounded-xl border border-slate-200/90 bg-white shadow-card sm:rounded-2xl`}>
         <div className="border-b border-slate-100 p-4">
           <div className="flex items-center justify-between gap-3">
             <div><p className="text-xs font-bold uppercase tracking-[0.14em] text-cyan-700">Prospects</p><h2 className="mt-1 text-xl font-bold">Contacts</h2></div>
@@ -169,7 +176,7 @@ export default function ContactsView({ currentUser, teamMembers }) {
             <button
               className={`block w-full border-b border-slate-100 p-4 text-left hover:bg-slate-50 ${selectedContact?.id === contact.id ? 'bg-cyan-50' : ''}`}
               key={contact.id}
-              onClick={() => { setIsCreating(false); setSelectedId(contact.id); setStatus({ type: '', message: '' }); }}
+              onClick={() => { setIsCreating(false); setSelectedId(contact.id); setStatus({ type: '', message: '' }); setMobilePane('detail'); }}
             >
               <p className="font-bold text-slate-950">{contact.name}</p>
               <p className="mt-1 text-sm text-slate-500">{contact.company || contact.email || 'Prospect'}</p>
@@ -180,8 +187,9 @@ export default function ContactsView({ currentUser, teamMembers }) {
         </div>
       </aside>
 
-      <section className="space-y-4">
-        <form className="rounded-2xl border border-slate-200/90 bg-white p-5 shadow-card sm:p-6" onSubmit={saveContact}>
+      <section className={`${mobilePane === 'list' ? 'hidden md:block' : 'block'} space-y-4`}>
+        <form className="rounded-xl border border-slate-200/90 bg-white p-4 shadow-card sm:rounded-2xl sm:p-6" onSubmit={saveContact}>
+          <button className="mb-3 inline-flex items-center gap-1.5 rounded-lg bg-slate-100 px-3 py-2 text-xs font-bold text-slate-600 md:hidden" onClick={() => setMobilePane('list')} type="button">← Back to contacts</button>
           <div className="flex flex-col gap-3 border-b border-slate-100 pb-4 sm:flex-row sm:items-center sm:justify-between">
             <div>
               <p className="text-xs font-bold uppercase tracking-[0.14em] text-cyan-700">{isCreating ? 'Unsaved prospect' : 'Contact profile'}</p>
@@ -190,15 +198,18 @@ export default function ContactsView({ currentUser, teamMembers }) {
             {(selectedContact || isCreating) ? <div className="flex gap-2">{isCreating ? <button className="rounded-lg border border-slate-200 px-4 py-2 text-sm font-bold" onClick={cancelContact} type="button">Cancel</button> : null}<button className="rounded-lg bg-slate-950 px-4 py-2 text-sm font-bold text-white" disabled={busy}>{isCreating ? 'Save contact' : 'Save changes'}</button></div> : null}
           </div>
           {(selectedContact || isCreating) ? (
+            <>
+            {selectedContact && (draft.email || draft.phone) ? <div className="mt-4 flex flex-wrap gap-2 rounded-xl border border-slate-200 bg-slate-50 p-2.5">{draft.email ? <a className="flex-1 rounded-lg border border-slate-200 bg-white px-3 py-2 text-center text-xs font-bold text-slate-700" href={`mailto:${draft.email}`}>Email</a> : null}{draft.phone ? <a className="flex-1 rounded-lg border border-slate-200 bg-white px-3 py-2 text-center text-xs font-bold text-slate-700" href={`tel:${draft.phone.replace(/\s/g, '')}`}>Call</a> : null}</div> : null}
+            {duplicateContact ? <div className="mt-4 flex items-center justify-between gap-3 rounded-xl border border-amber-200 bg-amber-50 px-4 py-3"><div><p className="text-sm font-bold text-amber-900">Possible duplicate contact</p><p className="mt-0.5 text-xs text-amber-700">Matches {duplicateContact.name}.</p></div><button className="rounded-lg bg-white px-3 py-2 text-xs font-bold text-amber-800" onClick={() => { setIsCreating(false); setSelectedId(duplicateContact.id); }} type="button">Open</button></div> : null}
             <div className="mt-5 grid gap-4 md:grid-cols-2">
               <label className="text-sm font-semibold">Name<input className={inputClass} name="name" value={draft.name} onChange={changeDraft} /></label>
               <label className="text-sm font-semibold">Company<input className={inputClass} name="company" value={draft.company} onChange={changeDraft} /></label>
               <label className="text-sm font-semibold">Email<input className={inputClass} name="email" type="email" value={draft.email} onChange={changeDraft} /></label>
               <label className="text-sm font-semibold">Phone<input className={inputClass} name="phone" value={draft.phone} onChange={changeDraft} /></label>
               <label className="text-sm font-semibold">Role / designation<input className={inputClass} name="role" value={draft.role} onChange={changeDraft} /></label>
-              <label className="text-sm font-semibold">Source<select className={inputClass} name="source" value={draft.source} onChange={changeDraft}>{['Prospect', 'Website', 'Referral', 'Networking', 'Existing client'].map((source) => <option key={source}>{source}</option>)}</select></label>
+              <label className="text-sm font-semibold">Source<select className={inputClass} name="source" value={draft.source} onChange={changeDraft}>{Array.from(new Set(['Prospect', 'Website', 'Referral', 'Networking', 'Existing client', draft.source].filter(Boolean))).map((source) => <option key={source}>{source}</option>)}</select></label>
               <label className="text-sm font-semibold md:col-span-2">Notes<textarea className={`${inputClass} min-h-24`} name="notes" value={draft.notes} onChange={changeDraft} /></label>
-            </div>
+            </div></>
           ) : <p className="py-16 text-center text-sm text-slate-500">Choose a contact or add a new prospect.</p>}
           {status.message ? <p className={`mt-4 rounded-lg px-4 py-3 text-sm font-medium ${status.type === 'error' ? 'bg-red-50 text-red-700' : status.type === 'warning' ? 'bg-amber-50 text-amber-700' : 'bg-emerald-50 text-emerald-700'}`}>{status.message}</p> : null}
         </form>
