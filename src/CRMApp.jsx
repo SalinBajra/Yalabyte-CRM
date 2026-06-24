@@ -819,17 +819,6 @@ export default function CRMApp() {
     );
   };
 
-  useEffect(() => {
-    if (isCreatingLead || !selectedLead || duplicateLead) return undefined;
-    const editableFields = Object.keys(initialLead);
-    const changed = editableFields.some((field) => String(draft[field] ?? '') !== String(selectedLead[field] ?? ''));
-    if (!changed) return undefined;
-    const timer = window.setTimeout(() => {
-      updateLead(selectedLead.id, Object.fromEntries(editableFields.map((field) => [field, draft[field]])));
-    }, 700);
-    return () => window.clearTimeout(timer);
-  }, [draft, selectedLead?.id, isCreatingLead, duplicateLead?.id]);
-
   const handleDraftChange = (event) => {
     const { name, value } = event.target;
     setDraft((current) => ({ ...current, [name]: value }));
@@ -927,6 +916,7 @@ export default function CRMApp() {
     }
     if (!selectedLead) return;
     updateLead(selectedLead.id, draft, 'Lead details updated.');
+    setActionNotice('Lead changes saved.');
   };
 
   const createLead = () => {
@@ -963,9 +953,7 @@ export default function CRMApp() {
       return;
     }
     if (!selectedLead) return;
-    const label = stages.find((stage) => stage.id === status)?.label || status;
     setDraft((current) => ({ ...current, status }));
-    updateLead(selectedLead.id, { status }, `Status changed to ${label}.`);
   };
 
   const moveLeadToStage = (leadId, status) => {
@@ -1132,6 +1120,7 @@ export default function CRMApp() {
   const stageCounts = Object.fromEntries(stages.map((stage) => [stage.id, leads.filter((lead) => lead.status === stage.id).length]));
   const activeFilterCount = Number(Boolean(query.trim())) + Number(stageFilter !== 'all') + Number(ownerFilter !== 'all') + Number(followUpFilter !== 'all');
   const currentProfile = teamMembers.find((member) => member.user_id === currentUser.id);
+  const hasUnsavedLeadChanges = Boolean(selectedLead && Object.keys(initialLead).some((field) => String(draft[field] ?? '') !== String(selectedLead[field] ?? '')));
   const canDeleteLeads = !currentProfile?.role || currentProfile.role === 'admin';
   const profileStatusTone = currentProfile?.status === 'busy' ? 'bg-rose-500' : currentProfile?.status === 'away' ? 'bg-amber-400' : currentProfile?.status === 'offline' ? 'bg-slate-400' : 'bg-emerald-500';
   const readNotificationIdSet = new Set(readNotificationIds);
@@ -1456,7 +1445,7 @@ export default function CRMApp() {
                     <p className="mt-1 text-sm text-slate-500">
                       {isCreatingLead ? 'Nothing is saved to the database until you create this lead.' : `Created ${formatDate(draft.createdAt)} from ${draft.source || 'Unknown source'}`}
                     </p>
-                    {!isCreatingLead ? <p className="mt-1 text-xs font-medium text-emerald-600">Changes save automatically</p> : null}
+                    {!isCreatingLead ? <p className={`mt-1 text-xs font-semibold ${hasUnsavedLeadChanges ? 'text-amber-600' : 'text-emerald-600'}`}>{hasUnsavedLeadChanges ? 'Unsaved changes' : 'All changes saved'}</p> : null}
                   </div>
                   <div className="flex flex-wrap items-center gap-2 sm:justify-end">
                     {isCreatingLead ? (
@@ -1481,6 +1470,7 @@ export default function CRMApp() {
                           {deleting ? 'Deleting…' : 'Delete'}
                         </button>
                       ) : null}
+                      {hasUnsavedLeadChanges ? <button className="rounded-lg bg-slate-950 px-4 py-2.5 text-sm font-bold text-white shadow-sm hover:bg-slate-800 disabled:cursor-not-allowed disabled:opacity-40" disabled={Boolean(duplicateLead)} type="submit">{duplicateLead ? 'Duplicate found' : 'Save changes'}</button> : null}
                     </>}
                   </div>
                 </div>
