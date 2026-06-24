@@ -14,7 +14,7 @@ function dueLabel(value) {
   return `Due in ${days}d`;
 }
 
-export default function PipelineBoard({ leads, stages, onMove, onOpenLead }) {
+export default function PipelineBoard({ leads, stages, teamMembers, onMove, onOpenLead }) {
   const activeLeads = leads.filter((lead) => lead.status !== 'lost');
 
   return (
@@ -70,7 +70,7 @@ export default function PipelineBoard({ leads, stages, onMove, onOpenLead }) {
                           <span className="shrink-0 text-xs font-extrabold text-slate-700">{currency(lead.value)}</span>
                         </div>
                         <div className="mt-3 flex items-center justify-between gap-2 text-[11px]">
-                          <span className="truncate font-semibold text-slate-500">{lead.owner || 'Unassigned'}</span>
+                          <span className="flex min-w-0 items-center gap-1.5"><TeamAvatar name={lead.owner} teamMembers={teamMembers} size="sm" /><span className="truncate font-semibold text-slate-500">{lead.owner || 'Unassigned'}</span></span>
                           {due ? <span className={due.includes('overdue') ? 'font-bold text-rose-600' : due === 'Due today' ? 'font-bold text-amber-600' : 'text-slate-400'}>{due}</span> : null}
                         </div>
                       </button>
@@ -90,3 +90,4 @@ export default function PipelineBoard({ leads, stages, onMove, onOpenLead }) {
     </div>
   );
 }
+import TeamAvatar from './TeamAvatar';

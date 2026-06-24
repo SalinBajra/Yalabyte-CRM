@@ -1,5 +1,6 @@
 import { useEffect, useMemo, useState } from "react";
 import { createSupportMessage, createSupportTicket, fetchClientProfiles, fetchSupportMessages, fetchSupportTickets, inviteLeadToPortal, supabase, updateSupportTicket } from "./supabase";
+import TeamAvatar from "./TeamAvatar";
 
 const statuses = [
   ["new", "New"],
@@ -59,6 +60,13 @@ export default function SupportView({ currentUser, leads, teamMembers }) {
 
   const selected = tickets.find((ticket) => ticket.id === selectedId) || null;
   const selectedClient = selected?.contact || selected?.lead?.data || null;
+  const openTickets = tickets.filter((ticket) => !["resolved", "closed"].includes(ticket.status));
+  const supportStats = [
+    ["Open tickets", openTickets.length, "bg-cyan-50 text-cyan-700"],
+    ["Urgent", openTickets.filter((ticket) => ticket.priority === "urgent").length, "bg-rose-50 text-rose-700"],
+    ["Unassigned", openTickets.filter((ticket) => !ticket.assigned_to).length, "bg-amber-50 text-amber-700"],
+    ["My queue", openTickets.filter((ticket) => ticket.assigned_to === currentUser.id).length, "bg-violet-50 text-violet-700"],
+  ];
   const filtered = useMemo(() => {
     const needle = query.trim().toLowerCase();
     return tickets.filter((ticket) => {
@@ -197,7 +205,12 @@ export default function SupportView({ currentUser, leads, teamMembers }) {
   };
 
   return (
-    <div className="mx-auto grid max-w-[1600px] gap-3 px-3 py-4 sm:gap-5 sm:px-6 xl:grid-cols-[370px_1fr]">
+    <div className="mx-auto max-w-[1600px] px-3 py-4 sm:px-6">
+      <div className="mb-4 flex flex-col gap-4 sm:flex-row sm:items-end sm:justify-between">
+        <div><p className="text-[11px] font-extrabold uppercase tracking-[0.16em] text-cyan-700">Client care</p><h1 className="mt-1 text-2xl font-extrabold tracking-tight text-slate-950">Support dashboard</h1><p className="mt-1 text-sm text-slate-500">Monitor workload, urgency, ownership, and client conversations.</p></div>
+        <div className="grid grid-cols-2 gap-2 sm:grid-cols-4">{supportStats.map(([label, value, tone]) => <div className="min-w-28 rounded-xl border border-slate-200 bg-white p-3 shadow-sm" key={label}><span className={`rounded-md px-2 py-1 text-[9px] font-extrabold uppercase tracking-[0.08em] ${tone}`}>{label}</span><p className="mt-2 text-xl font-extrabold">{value}</p></div>)}</div>
+      </div>
+      <div className="grid items-start gap-3 sm:gap-5 xl:grid-cols-[370px_1fr]">
       <aside className={`${mobilePane === "detail" ? "hidden md:block" : "block"} overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-card`}>
         <div className="border-b border-slate-200 p-4">
           <div className="flex items-center justify-between gap-3">
@@ -239,9 +252,7 @@ export default function SupportView({ currentUser, leads, teamMembers }) {
               <p className="mt-1 truncate text-xs text-slate-500">
                 {ticket.contact?.name || ticket.lead?.data?.name || "Client"} · {ticket.contact?.company || ticket.lead?.data?.company || "Lead"}
               </p>
-              <p className="mt-2 text-[11px] font-semibold text-slate-400">
-                {statuses.find(([value]) => value === ticket.status)?.[1]} · {ticket.assigned_to_name || "Unassigned"}
-              </p>
+              <div className="mt-2 flex items-center gap-1.5 text-[11px] font-semibold text-slate-400"><TeamAvatar name={ticket.assigned_to_name} teamMembers={teamMembers} size="sm" /><span>{statuses.find(([value]) => value === ticket.status)?.[1]} · {ticket.assigned_to_name || "Unassigned"}</span></div>
             </button>
           ))}
           {!filtered.length ? <p className="px-5 py-10 text-center text-sm text-slate-400">No tickets match this view.</p> : null}
@@ -503,6 +514,7 @@ export default function SupportView({ currentUser, leads, teamMembers }) {
           <div className="flex min-h-[500px] items-center justify-center rounded-2xl border border-slate-200 bg-white text-sm text-slate-400">Select a ticket or create a new one.</div>
         )}
       </main>
+      </div>
     </div>
   );
 }

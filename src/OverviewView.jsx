@@ -1,5 +1,6 @@
 import { useEffect, useMemo, useState } from 'react';
-import { fetchAllLeadTasks, setLeadTaskStatus, setTeamMemberRole, supabase } from './supabase';
+import { fetchAllLeadTasks, fetchSupportTickets, setLeadTaskStatus, setTeamMemberRole, supabase } from './supabase';
+import TeamAvatar from './TeamAvatar';
 
 function money(value) {
   return `Rs ${new Intl.NumberFormat('en-NP', { maximumFractionDigits: 0 }).format(Number(value || 0))}`;
@@ -19,14 +20,16 @@ function Metric({ label, value, note, tone = 'cyan' }) {
   return <div className="rounded-2xl border border-slate-200 bg-white p-4 shadow-card"><span className={`inline-flex rounded-lg px-2 py-1 text-[10px] font-extrabold uppercase tracking-[0.12em] ${tones[tone]}`}>{label}</span><p className="mt-3 text-2xl font-extrabold tracking-tight text-slate-950">{value}</p><p className="mt-1 text-xs text-slate-500">{note}</p></div>;
 }
 
-export default function OverviewView({ leads, currentUser, teamMembers, onOpenLead, onTeamChanged }) {
+export default function OverviewView({ leads, currentUser, teamMembers, onOpenLead, onOpenSupport, onTeamChanged }) {
   const [tasks, setTasks] = useState([]);
+  const [supportTickets, setSupportTickets] = useState([]);
   const [taskError, setTaskError] = useState('');
   const [roleError, setRoleError] = useState('');
 
   useEffect(() => {
     if (!supabase) return;
     fetchAllLeadTasks().then(setTasks).catch(() => setTaskError('Run the operational CRM migration to enable the shared task queue.'));
+    fetchSupportTickets().then(setSupportTickets).catch(() => {});
   }, []);
 
   const data = useMemo(() => {
@@ -58,6 +61,10 @@ export default function OverviewView({ leads, currentUser, teamMembers, onOpenLe
   const currentProfile = teamMembers.find((member) => member.user_id === currentUser.id);
   const canManageTeam = currentProfile?.role === 'admin';
   const maxSourceCount = Math.max(...data.sources.map(([, count]) => count), 1);
+  const openSupport = supportTickets.filter((ticket) => !['resolved', 'closed'].includes(ticket.status));
+  const urgentSupport = openSupport.filter((ticket) => ticket.priority === 'urgent');
+  const waitingSupport = openSupport.filter((ticket) => ticket.status === 'waiting_client');
+  const mySupport = openSupport.filter((ticket) => ticket.assigned_to === currentUser.id);
 
   const toggleTask = async (task) => {
     const status = task.status === 'done' ? 'open' : 'done';
@@ -116,16 +123,26 @@ export default function OverviewView({ leads, currentUser, teamMembers, onOpenLe
         </section>
       </div>
 
+      <section className="mt-5 rounded-2xl border border-slate-200 bg-white p-4 shadow-card sm:p-5">
+        <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
+          <div><p className="text-[10px] font-extrabold uppercase tracking-[0.14em] text-cyan-700">Client care</p><h2 className="mt-1 text-lg font-extrabold">Support snapshot</h2><p className="mt-1 text-xs text-slate-500">Only what needs attention now; the full queue stays in Support.</p></div>
+          <button className="rounded-lg bg-slate-950 px-4 py-2.5 text-xs font-bold text-white hover:bg-slate-800" onClick={onOpenSupport} type="button">Open support</button>
+        </div>
+        <div className="mt-4 grid grid-cols-2 gap-3 lg:grid-cols-4">
+          {[["Open", openSupport.length, "text-cyan-700 bg-cyan-50"], ["Urgent", urgentSupport.length, "text-rose-700 bg-rose-50"], ["Waiting client", waitingSupport.length, "text-amber-700 bg-amber-50"], ["Assigned to me", mySupport.length, "text-violet-700 bg-violet-50"]].map(([label, value, tone]) => <div className="rounded-xl border border-slate-200 p-3" key={label}><span className={`rounded-md px-2 py-1 text-[9px] font-extrabold uppercase tracking-[0.1em] ${tone}`}>{label}</span><p className="mt-3 text-xl font-extrabold text-slate-950">{value}</p></div>)}
+        </div>
+      </section>
+
       <div className="mt-5 grid gap-5 lg:grid-cols-2">
         <section className="rounded-2xl border border-slate-200 bg-white p-5 shadow-card"><h2 className="text-lg font-extrabold">Lead sources</h2><p className="mt-1 text-xs text-slate-500">Where opportunities are coming from</p><div className="mt-5 space-y-3">{data.sources.slice(0, 7).map(([source, count]) => <div key={source}><div className="mb-1 flex justify-between text-xs"><span className="font-semibold text-slate-600">{source}</span><span className="font-bold text-slate-800">{count}</span></div><div className="h-2 overflow-hidden rounded-full bg-slate-100"><div className="h-full rounded-full bg-cyanbrand-500" style={{ width: `${Math.max((count / maxSourceCount) * 100, 6)}%` }} /></div></div>)}{!data.sources.length ? <p className="text-sm text-slate-400">No source data yet.</p> : null}</div></section>
-        <section className="rounded-2xl border border-slate-200 bg-white p-5 shadow-card"><h2 className="text-lg font-extrabold">Team pipeline</h2><p className="mt-1 text-xs text-slate-500">Open ownership and value</p><div className="mt-4 divide-y divide-slate-100">{data.owners.map(([owner, summary]) => <div className="flex items-center justify-between gap-3 py-3" key={owner}><div className="flex min-w-0 items-center gap-2.5"><span className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-slate-100 text-xs font-extrabold text-slate-600">{owner.charAt(0)}</span><div><p className="truncate text-sm font-bold text-slate-800">{owner}</p><p className="text-xs text-slate-500">{summary.count} open</p></div></div><span className="text-sm font-extrabold text-slate-800">{money(summary.value)}</span></div>)}{!data.owners.length ? <p className="py-6 text-sm text-slate-400">No active ownership data.</p> : null}</div></section>
+        <section className="rounded-2xl border border-slate-200 bg-white p-5 shadow-card"><h2 className="text-lg font-extrabold">Team pipeline</h2><p className="mt-1 text-xs text-slate-500">Open ownership and value</p><div className="mt-4 divide-y divide-slate-100">{data.owners.map(([owner, summary]) => <div className="flex items-center justify-between gap-3 py-3" key={owner}><div className="flex min-w-0 items-center gap-2.5"><TeamAvatar name={owner} teamMembers={teamMembers} /><div><p className="truncate text-sm font-bold text-slate-800">{owner}</p><p className="text-xs text-slate-500">{summary.count} open</p></div></div><span className="text-sm font-extrabold text-slate-800">{money(summary.value)}</span></div>)}{!data.owners.length ? <p className="py-6 text-sm text-slate-400">No active ownership data.</p> : null}</div></section>
       </div>
 
       {canManageTeam ? (
         <section className="mt-5 rounded-2xl border border-slate-200 bg-white p-5 shadow-card">
           <div><p className="text-[10px] font-extrabold uppercase tracking-[0.14em] text-slate-400">Admin</p><h2 className="mt-1 text-lg font-extrabold">Team access</h2><p className="mt-1 text-xs text-slate-500">Admins can manage roles and delete audited leads.</p></div>
           {roleError ? <p className="mt-3 rounded-lg bg-rose-50 px-3 py-2 text-xs text-rose-700">{roleError}</p> : null}
-          <div className="mt-4 grid gap-2 sm:grid-cols-2 lg:grid-cols-3">{teamMembers.map((member) => <div className="flex items-center justify-between gap-3 rounded-xl border border-slate-200 p-3" key={member.user_id}><div className="min-w-0"><p className="truncate text-sm font-bold text-slate-800">{member.name}</p><p className="truncate text-xs text-slate-400">{member.email}</p></div><select className="rounded-lg border border-slate-200 bg-white px-2 py-1.5 text-xs font-bold text-slate-600" value={member.role || 'member'} onChange={(event) => changeRole(member, event.target.value)}><option value="member">Member</option><option value="admin">Admin</option></select></div>)}</div>
+          <div className="mt-4 grid gap-2 sm:grid-cols-2 lg:grid-cols-3">{teamMembers.map((member) => <div className="flex items-center justify-between gap-3 rounded-xl border border-slate-200 p-3" key={member.user_id}><TeamAvatar name={member.name} teamMembers={teamMembers} /><div className="min-w-0 flex-1"><p className="truncate text-sm font-bold text-slate-800">{member.name}</p><p className="truncate text-xs text-slate-400">{member.email}</p></div><select className="rounded-lg border border-slate-200 bg-white px-2 py-1.5 text-xs font-bold text-slate-600" value={member.role || 'member'} onChange={(event) => changeRole(member, event.target.value)}><option value="member">Member</option><option value="admin">Admin</option></select></div>)}</div>
         </section>
       ) : null}
     </div>

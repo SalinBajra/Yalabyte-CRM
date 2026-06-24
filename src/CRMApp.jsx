@@ -6,6 +6,7 @@ import OverviewView from './OverviewView';
 import PipelineBoard from './PipelineBoard';
 import ProfileModal from './ProfileModal';
 import SupportView from './SupportView';
+import TeamAvatar from './TeamAvatar';
 import {
   convertLeadToContact,
   deleteLeadWithAudit,
@@ -1260,18 +1261,19 @@ export default function CRMApp() {
           currentUser={currentUser}
           leads={leads}
           onOpenLead={openLeadWorkspace}
+          onOpenSupport={() => setActiveWorkspace('support')}
           onTeamChanged={() => fetchTeamMembers().then(setTeamMembers).catch(() => {})}
           teamMembers={teamMembers}
         />
       ) : activeWorkspace === 'pipeline' ? (
-        <PipelineBoard leads={leads} stages={stages} onMove={moveLeadToStage} onOpenLead={openLeadWorkspace} />
+        <PipelineBoard leads={leads} stages={stages} teamMembers={teamMembers} onMove={moveLeadToStage} onOpenLead={openLeadWorkspace} />
       ) : activeWorkspace === 'contacts' ? (
         <ContactsView currentUser={currentUser} teamMembers={teamMembers} />
       ) : activeWorkspace === 'support' ? (
         <SupportView currentUser={currentUser} leads={leads} teamMembers={teamMembers} />
       ) : (
         <>
-      <div className="mx-auto grid max-w-[1500px] gap-3 px-3 py-3 sm:gap-5 sm:px-6 sm:py-5 xl:grid-cols-[360px_1fr]">
+      <div className="mx-auto grid max-w-[1500px] items-start gap-3 px-3 py-3 sm:gap-5 sm:px-6 sm:py-5 xl:grid-cols-[340px_minmax(0,1fr)]">
         <aside className={`${mobilePane === 'detail' ? 'hidden md:block' : 'block'} overflow-hidden rounded-xl border border-slate-200/90 bg-white shadow-card sm:rounded-2xl`}>
           <div className="border-b border-slate-200 p-4">
             <div className="mb-3 flex items-center justify-between">
@@ -1408,7 +1410,7 @@ export default function CRMApp() {
                   </div>
                   <div className="mt-2 flex items-center justify-between text-xs text-slate-500">
                     <span className="flex min-w-0 items-center gap-1.5 truncate font-medium text-slate-600">
-                      <span className="flex h-5 w-5 shrink-0 items-center justify-center rounded-full bg-slate-100 text-[9px] font-extrabold text-slate-600">{lead.owner?.charAt(0)?.toUpperCase() || '?'}</span>
+                      <TeamAvatar name={lead.owner} teamMembers={teamMembers} size="sm" />
                       <span className="truncate">{lead.owner || 'Unassigned'}</span>
                     </span>
                     {due < 0 ? <span className="rounded-md bg-rose-50 px-2 py-1 font-bold text-rose-700">Overdue {Math.abs(due)}d</span>
@@ -1428,7 +1430,7 @@ export default function CRMApp() {
           </div>
         </aside>
 
-        <section className={`${mobilePane === 'list' ? 'hidden md:grid' : 'grid'} gap-3 sm:gap-5 lg:grid-cols-[1fr_360px]`}>
+        <section className={`${mobilePane === 'list' ? 'hidden md:grid' : 'grid'} items-start gap-3 sm:gap-5 lg:grid-cols-[minmax(0,1fr)_340px]`}>
           <form className="rounded-xl border border-slate-200/90 bg-white p-3 shadow-card sm:rounded-2xl sm:p-6" onSubmit={saveDraft}>
             {selectedLead || isCreatingLead ? (
               <>
