@@ -12,6 +12,7 @@ Standalone CRM frontend for the YalaByte team, built with React, Vite, and Tailw
 - Branded PDF invoice generation for won projects, including deposit, final-balance, full, and custom payment schedules
 - Admin/member roles, protected audited deletion, cross-device notification reads, and safe merge-based imports
 - Email, phone, calendar, Cliq, website lead capture, realtime Supabase sync, and JSON backup/export support
+- Invite-only client portal with magic-link access, realtime support tickets, team assignment, internal notes, and client replies
 
 ## Local development
 
@@ -52,6 +53,7 @@ Add `crm.yalabyte.com` under the Vercel project's domains, then configure the CN
    - [`supabase/migrations/202606230004_team_profiles_and_avatars.sql`](supabase/migrations/202606230004_team_profiles_and_avatars.sql)
    - [`supabase/migrations/202606240001_operational_crm.sql`](supabase/migrations/202606240001_operational_crm.sql)
    - [`supabase/migrations/202606240002_contact_deletion.sql`](supabase/migrations/202606240002_contact_deletion.sql)
+   - [`supabase/migrations/202606240003_client_portal_support.sql`](supabase/migrations/202606240003_client_portal_support.sql)
 3. In Authentication settings, add `https://crm.yalabyte.com` as the Site URL and redirect URL.
 4. Copy `.env.example` to `.env` for local development and add the project values.
 5. Add the same variables in Vercel Project Settings → Environment Variables:
@@ -64,6 +66,12 @@ VITE_SUPABASE_PUBLISHABLE_KEY=your-supabase-publishable-key
 Use the browser-safe publishable key, never the Supabase secret or service-role key. Redeploy after adding the variables.
 
 Supabase Auth stores user accounts server-side, so accounts survive browser-data clearing and work across devices. Clearing browser data signs the user out, but they can sign in again. Leads are shared in PostgreSQL and protected by row-level security for authenticated `@yalabyte.com` users.
+
+### Client portal and support
+
+The portal is invite-only. A website inquiry creates a lead but never creates a login automatically. After the team qualifies the lead and creates or converts its contact, use **Invite to portal** in Contacts. The client receives a Supabase magic-link invitation and can open `https://www.yalabyte.com/client-portal` to create and follow support tickets.
+
+On the website Vercel project, configure `SUPABASE_URL`, `SUPABASE_SERVICE_ROLE_KEY`, `VITE_SUPABASE_URL`, `VITE_SUPABASE_PUBLISHABLE_KEY`, and optionally `CLIENT_PORTAL_URL`. In Supabase Authentication URL Configuration, add `https://www.yalabyte.com/client-portal` to the redirect allow list. The website service-role key remains server-only; only the publishable key uses the `VITE_` prefix.
 
 Each authenticated team member is added to the lead-owner directory on sign-in. Lead deletion is audited through a protected database function that retains a complete snapshot and records who deleted the lead.
 

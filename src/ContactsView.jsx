@@ -5,6 +5,7 @@ import {
   deleteContact,
   fetchContacts,
   fetchContactTasks,
+  inviteContactToPortal,
   setContactTaskStatus,
   supabase,
   updateContact
@@ -29,6 +30,7 @@ export default function ContactsView({ currentUser, teamMembers }) {
   const [taskDraft, setTaskDraft] = useState(emptyTask);
   const [status, setStatus] = useState({ type: '', message: '' });
   const [busy, setBusy] = useState(false);
+  const [inviting, setInviting] = useState(false);
   const [mobilePane, setMobilePane] = useState('list');
 
   const selectedContact = isCreating ? null : contacts.find((contact) => contact.id === selectedId) || null;
@@ -136,6 +138,18 @@ export default function ContactsView({ currentUser, teamMembers }) {
     }
   };
 
+  const inviteToPortal = async () => {
+    if (!selectedContact?.email || inviting) return;
+    setInviting(true);
+    setStatus({ type: '', message: '' });
+    try {
+      const result = await inviteContactToPortal(selectedContact.id);
+      setStatus({ type: 'success', message: result.message || `Portal invitation sent to ${selectedContact.email}.` });
+    } catch (error) {
+      setStatus({ type: 'error', message: error.message || 'Unable to invite this client.' });
+    } finally { setInviting(false); }
+  };
+
   const assignTask = async () => {
     const assignee = teamMembers.find((member) => member.user_id === taskDraft.assigneeId);
     if (!selectedContact || !assignee || !taskDraft.title.trim()) {
@@ -217,7 +231,7 @@ export default function ContactsView({ currentUser, teamMembers }) {
               <p className="text-xs font-bold uppercase tracking-[0.14em] text-cyan-700">{isCreating ? 'Unsaved prospect' : 'Contact profile'}</p>
               <h2 className="mt-1 text-2xl font-bold">{isCreating ? 'Add prospect contact' : selectedContact?.name || 'Select a contact'}</h2>
             </div>
-            {(selectedContact || isCreating) ? <div className="flex gap-2">{isCreating ? <button className="rounded-lg border border-slate-200 px-4 py-2 text-sm font-bold" onClick={cancelContact} type="button">Cancel</button> : <button className="rounded-lg border border-rose-200 bg-white px-4 py-2 text-sm font-bold text-rose-600 hover:bg-rose-50" disabled={busy} onClick={removeContact} type="button">Delete</button>}<button className="rounded-lg bg-slate-950 px-4 py-2 text-sm font-bold text-white" disabled={busy}>{isCreating ? 'Save contact' : 'Save changes'}</button></div> : null}
+            {(selectedContact || isCreating) ? <div className="flex flex-wrap gap-2">{isCreating ? <button className="rounded-lg border border-slate-200 px-4 py-2 text-sm font-bold" onClick={cancelContact} type="button">Cancel</button> : <>{selectedContact.email ? <button className="rounded-lg border border-cyan-200 bg-cyan-50 px-4 py-2 text-sm font-bold text-cyan-800 hover:bg-cyan-100 disabled:opacity-50" disabled={inviting} onClick={inviteToPortal} type="button">{inviting ? 'Inviting…' : 'Invite to portal'}</button> : null}<button className="rounded-lg border border-rose-200 bg-white px-4 py-2 text-sm font-bold text-rose-600 hover:bg-rose-50" disabled={busy} onClick={removeContact} type="button">Delete</button></>}<button className="rounded-lg bg-slate-950 px-4 py-2 text-sm font-bold text-white" disabled={busy}>{isCreating ? 'Save contact' : 'Save changes'}</button></div> : null}
           </div>
           {(selectedContact || isCreating) ? (
             <>

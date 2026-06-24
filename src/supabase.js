@@ -282,6 +282,103 @@ export async function setTeamMemberRole(userId, role) {
   if (error) throw error;
 }
 
+export async function fetchClientProfiles() {
+  const { data, error } = await supabase
+    .from('client_profiles')
+    .select('*,contact:contacts(id,name,email,phone,company)')
+    .order('name');
+  if (error) throw error;
+  return data || [];
+}
+
+export async function inviteContactToPortal(contactId) {
+  const { data } = await supabase.auth.getSession();
+  const response = await fetch('https://www.yalabyte.com/api/client-invite', {
+    method: 'POST',
+    headers: {
+      'Content-Type': 'application/json',
+      Authorization: `Bearer ${data.session?.access_token || ''}`
+    },
+    body: JSON.stringify({ contactId })
+  });
+  const result = await response.json().catch(() => ({}));
+  if (!response.ok) throw new Error(result.detail || 'Unable to invite this client.');
+  return result;
+}
+
+export async function fetchSupportTickets() {
+  const { data, error } = await supabase
+    .from('support_tickets')
+    .select('*,contact:contacts(id,name,email,phone,company)')
+    .order('last_activity_at', { ascending: false });
+  if (error) throw error;
+  return data || [];
+}
+
+export async function createSupportTicket(ticket, clientProfile, user) {
+  const { data, error } = await supabase.from('support_tickets').insert({
+    client_user_id: clientProfile.user_id,
+    contact_id: clientProfile.contact_id,
+    lead_id: ticket.leadId || null,
+    subject: ticket.subject.trim(),
+    description: ticket.description.trim(),
+    category: ticket.category,
+    priority: ticket.priority,
+    assigned_to: ticket.assignee?.user_id || null,
+    assigned_to_name: ticket.assignee?.name || '',
+    response_due_at: ticket.responseDueAt || null,
+    resolution_due_at: ticket.resolutionDueAt || null
+  }).select('*,contact:contacts(id,name,email,phone,company)').single();
+  if (error) throw error;
+
+  const { error: messageError } = await supabase.from('support_ticket_messages').insert({
+    ticket_id: data.id,
+    author_user_id: user.id,
+    author_name: user.name,
+    author_email: user.email,
+    author_type: 'team',
+    body: ticket.description.trim(),
+    is_internal: false
+  });
+  if (messageError) throw messageError;
+  return data;
+}
+
+export async function updateSupportTicket(ticketId, changes) {
+  const { data, error } = await supabase
+    .from('support_tickets')
+    .update({ ...changes, updated_at: new Date().toISOString() })
+    .eq('id', ticketId)
+    .select('*,contact:contacts(id,name,email,phone,company)')
+    .single();
+  if (error) throw error;
+  return data;
+}
+
+export async function fetchSupportMessages(ticketId) {
+  const { data, error } = await supabase
+    .from('support_ticket_messages')
+    .select('*')
+    .eq('ticket_id', ticketId)
+    .order('created_at');
+  if (error) throw error;
+  return data || [];
+}
+
+export async function createSupportMessage(ticketId, body, user, isInternal = false) {
+  const { data, error } = await supabase.from('support_ticket_messages').insert({
+    ticket_id: ticketId,
+    author_user_id: user.id,
+    author_name: user.name,
+    author_email: user.email,
+    author_type: 'team',
+    body: body.trim(),
+    is_internal: isInternal
+  }).select().single();
+  if (error) throw error;
+  return data;
+}
+
 export async function fetchContactTasks(contactId) {
   const { data, error } = await supabase
     .from('contact_tasks')
