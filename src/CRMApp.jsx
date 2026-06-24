@@ -140,6 +140,18 @@ function daysUntil(value) {
   return Math.round((target - today) / 86400000);
 }
 
+function normalizedEmail(value) {
+  return value?.trim().toLowerCase() || '';
+}
+
+function normalizedPhone(value) {
+  return value?.replace(/\D/g, '') || '';
+}
+
+function samePersonName(left, right) {
+  return Boolean(left && right && left.trim().localeCompare(right.trim(), undefined, { sensitivity: 'base' }) === 0);
+}
+
 function money(value) {
   const amount = Number(value || 0);
   return `Rs ${new Intl.NumberFormat('en-NP', { maximumFractionDigits: 0 }).format(amount)}`;
@@ -502,6 +514,8 @@ export default function CRMApp() {
   const [draft, setDraft] = useState(initialLead);
   const [query, setQuery] = useState('');
   const [stageFilter, setStageFilter] = useState('all');
+  const [ownerFilter, setOwnerFilter] = useState('all');
+  const [followUpFilter, setFollowUpFilter] = useState('all');
   const [note, setNote] = useState('');
   const [teamMembers, setTeamMembers] = useState([]);
   const [notifications, setNotifications] = useState([]);
@@ -513,7 +527,7 @@ export default function CRMApp() {
   const [profileOpen, setProfileOpen] = useState(false);
   const importInputRef = useRef(null);
 
-  const selectedLead = isCreatingLead ? null : leads.find((lead) => lead.id === selectedId) || leads[0] || null;
+  const selectedLead = isCreatingLead ? null : leads.find((lead) => lead.id === selectedId) || null;
 
   useEffect(() => {
     window.localStorage.setItem(STORAGE_KEY, JSON.stringify(leads));
@@ -663,14 +677,42 @@ export default function CRMApp() {
     const normalizedQuery = query.trim().toLowerCase();
     return leads.filter((lead) => {
       const matchesStage = stageFilter === 'all' || lead.status === stageFilter;
+      const matchesOwner = ownerFilter === 'all'
+        || (ownerFilter === 'mine' && samePersonName(lead.owner, currentUser?.name))
+        || (ownerFilter === 'unassigned' && !lead.owner)
+        || (ownerFilter.startsWith('owner:') && samePersonName(lead.owner, ownerFilter.slice(6)));
+      const due = daysUntil(lead.followUpDate);
+      const isClosed = ['won', 'lost'].includes(lead.status);
+      const matchesFollowUp = followUpFilter === 'all'
+        || (followUpFilter === 'overdue' && due !== null && due < 0 && !isClosed)
+        || (followUpFilter === 'today' && due === 0 && !isClosed)
+        || (followUpFilter === 'upcoming' && due !== null && due > 0 && !isClosed)
+        || (followUpFilter === 'none' && due === null && !isClosed);
       const matchesQuery =
         !normalizedQuery ||
         [lead.name, lead.email, lead.phone, lead.company, lead.service, lead.owner, lead.source]
           .filter(Boolean)
           .some((value) => value.toLowerCase().includes(normalizedQuery));
-      return matchesStage && matchesQuery;
+      return matchesStage && matchesOwner && matchesFollowUp && matchesQuery;
     });
-  }, [leads, query, stageFilter]);
+  }, [leads, query, stageFilter, ownerFilter, followUpFilter, currentUser?.name]);
+
+  const duplicateLead = useMemo(() => {
+    const email = normalizedEmail(draft.email);
+    const phone = normalizedPhone(draft.phone);
+    if (!email && phone.length < 7) return null;
+    return leads.find((lead) => {
+      if (lead.id === draft.id) return false;
+      const emailMatches = email && normalizedEmail(lead.email) === email;
+      const phoneMatches = phone.length >= 7 && normalizedPhone(lead.phone) === phone;
+      return emailMatches || phoneMatches;
+    }) || null;
+  }, [draft.email, draft.phone, draft.id, leads]);
+
+  useEffect(() => {
+    if (isCreatingLead || filteredLeads.some((lead) => lead.id === selectedId)) return;
+    setSelectedId(filteredLeads[0]?.id || '');
+  }, [filteredLeads, selectedId, isCreatingLead]);
 
   const stats = useMemo(() => {
     const open = leads.filter((lead) => !['won', 'lost'].includes(lead.status)).length;
@@ -858,6 +900,7 @@ export default function CRMApp() {
 
   const activeTone = stages.find((stage) => stage.id === draft.status)?.tone || stages[0].tone;
   const ownerOptions = Array.from(new Set([...teamMembers.map((member) => member.name), draft.owner].filter(Boolean)));
+  const leadOwnerOptions = Array.from(new Set(leads.map((lead) => lead.owner).filter(Boolean))).sort();
   const currentProfile = teamMembers.find((member) => member.user_id === currentUser.id);
   const profileStatusTone = currentProfile?.status === 'busy' ? 'bg-rose-500' : currentProfile?.status === 'away' ? 'bg-amber-400' : currentProfile?.status === 'offline' ? 'bg-slate-400' : 'bg-emerald-500';
   const readNotificationIdSet = new Set(readNotificationIds);
@@ -998,6 +1041,43 @@ export default function CRMApp() {
                 onChange={(event) => setQuery(event.target.value)}
               />
             </div>
+            <div className="mt-3 grid grid-cols-2 gap-2">
+              <button
+                className={`rounded-lg px-3 py-2.5 text-xs font-bold transition ${ownerFilter === 'mine' ? 'bg-cyan-100 text-cyan-800 ring-1 ring-cyan-200' : 'bg-slate-100 text-slate-600 hover:bg-slate-200'}`}
+                onClick={() => setOwnerFilter((current) => current === 'mine' ? 'all' : 'mine')}
+                type="button"
+              >
+                My Leads
+              </button>
+              <button
+                className={`rounded-lg px-3 py-2.5 text-xs font-bold transition ${followUpFilter === 'overdue' ? 'bg-rose-100 text-rose-700 ring-1 ring-rose-200' : 'bg-slate-100 text-slate-600 hover:bg-slate-200'}`}
+                onClick={() => setFollowUpFilter((current) => current === 'overdue' ? 'all' : 'overdue')}
+                type="button"
+              >
+                Overdue follow-ups
+              </button>
+            </div>
+            <div className="mt-3 grid grid-cols-2 gap-2">
+              <label className="text-[10px] font-extrabold uppercase tracking-[0.12em] text-slate-400">
+                Owner
+                <select className="mt-1.5 w-full rounded-lg border border-slate-200 bg-white px-2.5 py-2 text-xs font-semibold normal-case tracking-normal text-slate-700 outline-none focus:border-cyanbrand-500" value={ownerFilter} onChange={(event) => setOwnerFilter(event.target.value)}>
+                  <option value="all">All owners</option>
+                  <option value="mine">My leads</option>
+                  <option value="unassigned">Unassigned</option>
+                  {leadOwnerOptions.filter((owner) => !samePersonName(owner, currentUser.name)).map((owner) => <option key={owner} value={`owner:${owner}`}>{owner}</option>)}
+                </select>
+              </label>
+              <label className="text-[10px] font-extrabold uppercase tracking-[0.12em] text-slate-400">
+                Follow-up
+                <select className="mt-1.5 w-full rounded-lg border border-slate-200 bg-white px-2.5 py-2 text-xs font-semibold normal-case tracking-normal text-slate-700 outline-none focus:border-cyanbrand-500" value={followUpFilter} onChange={(event) => setFollowUpFilter(event.target.value)}>
+                  <option value="all">Any date</option>
+                  <option value="overdue">Overdue</option>
+                  <option value="today">Due today</option>
+                  <option value="upcoming">Upcoming</option>
+                  <option value="none">No date</option>
+                </select>
+              </label>
+            </div>
             <p className="mb-2 mt-4 text-[10px] font-extrabold uppercase tracking-[0.14em] text-slate-400">Filter by stage</p>
             <div className="grid grid-cols-3 gap-2">
               <button
@@ -1017,7 +1097,7 @@ export default function CRMApp() {
               ))}
             </div>
           </div>
-          <div className="max-h-[calc(100vh-260px)] overflow-y-auto">
+          <div className="max-h-[calc(100vh-420px)] overflow-y-auto">
             {filteredLeads.map((lead) => {
               const due = daysUntil(lead.followUpDate);
               return (
@@ -1044,7 +1124,9 @@ export default function CRMApp() {
                   </div>
                   <div className="mt-2 flex items-center justify-between text-xs text-slate-500">
                     <span>{lead.priority || 'Medium'} priority</span>
-                    <span className={due !== null && due <= 0 ? 'font-bold text-red-600' : ''}>{formatDate(lead.followUpDate)}</span>
+                    {due < 0 ? <span className="rounded-md bg-rose-50 px-2 py-1 font-bold text-rose-700">Overdue {Math.abs(due)}d</span>
+                      : due === 0 ? <span className="rounded-md bg-amber-50 px-2 py-1 font-bold text-amber-700">Due today</span>
+                      : <span>{formatDate(lead.followUpDate)}</span>}
                   </div>
                 </button>
               );
@@ -1095,6 +1177,28 @@ export default function CRMApp() {
                     </button>
                   </div>
                 </div>
+
+                {duplicateLead ? (
+                  <div className="mt-4 flex flex-col gap-3 rounded-xl border border-amber-200 bg-amber-50 px-4 py-3 sm:flex-row sm:items-center sm:justify-between">
+                    <div>
+                      <p className="text-sm font-bold text-amber-900">Possible duplicate lead</p>
+                      <p className="mt-0.5 text-xs leading-5 text-amber-700">{duplicateLead.name || 'An existing lead'} already uses this email address or phone number.</p>
+                    </div>
+                    <button
+                      className="shrink-0 rounded-lg border border-amber-300 bg-white px-3 py-2 text-xs font-bold text-amber-800 hover:bg-amber-100"
+                      onClick={() => {
+                        setIsCreatingLead(false);
+                        setSelectedId(duplicateLead.id);
+                        setOwnerFilter('all');
+                        setFollowUpFilter('all');
+                        setStageFilter('all');
+                      }}
+                      type="button"
+                    >
+                      Open existing
+                    </button>
+                  </div>
+                ) : null}
 
                 <div className="mt-5 grid gap-4 md:grid-cols-2">
                   <label className="text-sm font-semibold">
@@ -1170,7 +1274,7 @@ export default function CRMApp() {
                 </label>
               </>
             ) : (
-              <div className="flex min-h-[420px] items-center justify-center text-sm text-slate-500">Create a lead to begin.</div>
+              <div className="flex min-h-[420px] items-center justify-center text-sm text-slate-500">Choose a lead or adjust the current filters.</div>
             )}
           </form>
 
