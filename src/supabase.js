@@ -186,8 +186,15 @@ export async function setContactTaskStatus(taskId, status) {
   if (error) throw error;
 }
 
-export async function notifyCliqNewLead(lead) {
+export async function notifyCliqNewLead(lead, createdBy) {
   const { data } = await supabase.auth.getSession();
+  const creatorName = createdBy?.name?.trim() || 'A team member';
+  const ownerName = lead.owner?.trim() || '';
+  const hasDifferentOwner = ownerName
+    && ownerName.localeCompare(creatorName, undefined, { sensitivity: 'base' }) !== 0;
+  const assignmentText = hasDifferentOwner ? ` It has been assigned to ${ownerName}.` : '';
+  const cliqMessage = `Hi Team! 🚀 ${creatorName} has added a new lead, ${lead.name}.${assignmentText} Please take a look and let's rock and roll! 🤘`;
+
   const response = await fetch('https://www.yalabyte.com/api/crm-event', {
     method: 'POST',
     headers: {
@@ -196,6 +203,13 @@ export async function notifyCliqNewLead(lead) {
     },
     body: JSON.stringify({
       type: 'new_lead',
+      message: cliqMessage,
+      createdBy: {
+        id: createdBy?.id || '',
+        name: creatorName,
+        email: createdBy?.email || ''
+      },
+      assignedTo: hasDifferentOwner ? ownerName : '',
       lead: {
         name: lead.name,
         company: lead.company,

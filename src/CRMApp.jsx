@@ -16,6 +16,7 @@ import {
 const STORAGE_KEY = 'yalabyte-crm-leads';
 const SESSION_KEY = 'yalabyte-crm-session';
 const ACCOUNTS_KEY = 'yalabyte-crm-accounts';
+const READ_NOTIFICATIONS_KEY = 'yalabyte-crm-read-notifications';
 const ALLOWED_EMAIL_DOMAIN = 'yalabyte.com';
 
 const stages = [
@@ -504,6 +505,7 @@ export default function CRMApp() {
   const [note, setNote] = useState('');
   const [teamMembers, setTeamMembers] = useState([]);
   const [notifications, setNotifications] = useState([]);
+  const [readNotificationIds, setReadNotificationIds] = useState([]);
   const [notificationsOpen, setNotificationsOpen] = useState(false);
   const [deleting, setDeleting] = useState(false);
   const [isCreatingLead, setIsCreatingLead] = useState(false);
@@ -516,6 +518,19 @@ export default function CRMApp() {
   useEffect(() => {
     window.localStorage.setItem(STORAGE_KEY, JSON.stringify(leads));
   }, [leads]);
+
+  useEffect(() => {
+    if (!currentUser?.id) {
+      setReadNotificationIds([]);
+      return;
+    }
+    try {
+      const stored = JSON.parse(window.localStorage.getItem(`${READ_NOTIFICATIONS_KEY}:${currentUser.id}`) || '[]');
+      setReadNotificationIds(Array.isArray(stored) ? stored : []);
+    } catch {
+      setReadNotificationIds([]);
+    }
+  }, [currentUser?.id]);
 
   useEffect(() => {
     if (!supabase) {
@@ -707,7 +722,7 @@ export default function CRMApp() {
         setSelectedId(lead.id);
         setIsCreatingLead(false);
         setSyncState('saved');
-        if (supabase) notifyCliqNewLead(lead).catch(() => {
+        if (supabase) notifyCliqNewLead(lead, currentUser).catch(() => {
           setDataError('Lead saved, but the Cliq team notification could not be delivered.');
         });
       } catch (error) {
@@ -845,6 +860,14 @@ export default function CRMApp() {
   const ownerOptions = Array.from(new Set([...teamMembers.map((member) => member.name), draft.owner].filter(Boolean)));
   const currentProfile = teamMembers.find((member) => member.user_id === currentUser.id);
   const profileStatusTone = currentProfile?.status === 'busy' ? 'bg-rose-500' : currentProfile?.status === 'away' ? 'bg-amber-400' : currentProfile?.status === 'offline' ? 'bg-slate-400' : 'bg-emerald-500';
+  const readNotificationIdSet = new Set(readNotificationIds);
+  const unreadNotificationCount = notifications.filter((notification) => !readNotificationIdSet.has(notification.id)).length;
+
+  const markAllNotificationsRead = () => {
+    const nextIds = Array.from(new Set([...readNotificationIds, ...notifications.map((notification) => notification.id)]));
+    setReadNotificationIds(nextIds);
+    window.localStorage.setItem(`${READ_NOTIFICATIONS_KEY}:${currentUser.id}`, JSON.stringify(nextIds));
+  };
 
   return (
     <main className="crm-shell min-h-screen text-slate-950">
@@ -884,17 +907,24 @@ export default function CRMApp() {
                 title="Notifications"
               >
                 <BellIcon />
-                {notifications.length ? (
+                {unreadNotificationCount ? (
                   <span className="absolute -right-1.5 -top-1.5 inline-flex min-w-[18px] items-center justify-center rounded-full border-2 border-white bg-rose-500 px-1 py-0.5 text-[9px] font-extrabold text-white">
-                    {notifications.length}
+                    {unreadNotificationCount}
                   </span>
                 ) : null}
               </button>
               {notificationsOpen ? (
                 <div className="absolute right-0 top-12 z-40 w-[min(92vw,390px)] overflow-hidden rounded-xl border border-slate-200 bg-white shadow-soft">
-                  <div className="border-b border-slate-100 px-4 py-3">
-                    <p className="font-bold text-slate-950">Lead deletion log</p>
-                    <p className="mt-0.5 text-xs text-slate-500">Protected audit copies are retained in Supabase.</p>
+                  <div className="flex items-start justify-between gap-3 border-b border-slate-100 px-4 py-3">
+                    <div>
+                      <p className="font-bold text-slate-950">Lead deletion log</p>
+                      <p className="mt-0.5 text-xs text-slate-500">Protected audit copies are retained in Supabase.</p>
+                    </div>
+                    {unreadNotificationCount ? (
+                      <button className="shrink-0 rounded-md bg-slate-100 px-2.5 py-1.5 text-[11px] font-bold text-slate-600 transition hover:bg-slate-200" onClick={markAllNotificationsRead} type="button">
+                        Mark all read
+                      </button>
+                    ) : null}
                   </div>
                   <div className="max-h-80 overflow-y-auto">
                     {notifications.map((notification) => (
