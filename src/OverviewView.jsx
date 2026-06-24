@@ -79,7 +79,7 @@ export default function OverviewView({ leads, currentUser, teamMembers, onOpenLe
     <div className="mx-auto max-w-[1500px] px-3 py-4 sm:px-6 sm:py-6">
       <div className="mb-5">
         <p className="text-[11px] font-extrabold uppercase tracking-[0.16em] text-cyan-700">Today at YalaByte</p>
-        <h1 className="mt-1 text-2xl font-extrabold tracking-tight text-slate-950">Overview</h1>
+        <h1 className="mt-1 text-2xl font-extrabold tracking-tight text-slate-950">Dashboard</h1>
         <p className="mt-1 text-sm text-slate-500">A focused view of deals, follow-ups, and your work.</p>
       </div>
 
