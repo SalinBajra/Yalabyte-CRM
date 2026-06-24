@@ -143,7 +143,7 @@ export default function ContactsView({ currentUser, teamMembers }) {
     setInviting(true);
     setStatus({ type: '', message: '' });
     try {
-      const result = await inviteContactToPortal(selectedContact.id);
+      const result = await inviteContactToPortal(selectedContact);
       setStatus({ type: 'success', message: result.message || `Portal invitation sent to ${selectedContact.email}.` });
     } catch (error) {
       setStatus({ type: 'error', message: error.message || 'Unable to invite this client.' });

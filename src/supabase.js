@@ -285,13 +285,13 @@ export async function setTeamMemberRole(userId, role) {
 export async function fetchClientProfiles() {
   const { data, error } = await supabase
     .from('client_profiles')
-    .select('*,contact:contacts(id,name,email,phone,company)')
+    .select('*,contact:contacts(id,name,email,phone,company,lead_id)')
     .order('name');
   if (error) throw error;
   return data || [];
 }
 
-export async function inviteContactToPortal(contactId) {
+async function sendPortalInvitation(payload) {
   const { data } = await supabase.auth.getSession();
   const response = await fetch('https://www.yalabyte.com/api/client-invite', {
     method: 'POST',
@@ -299,27 +299,43 @@ export async function inviteContactToPortal(contactId) {
       'Content-Type': 'application/json',
       Authorization: `Bearer ${data.session?.access_token || ''}`
     },
-    body: JSON.stringify({ contactId })
+    body: JSON.stringify(payload)
   });
   const result = await response.json().catch(() => ({}));
   if (!response.ok) throw new Error(result.detail || 'Unable to invite this client.');
   return result;
 }
 
+export function inviteContactToPortal(contact) {
+  return sendPortalInvitation({
+    contactId: contact.id,
+    contactEmail: contact.email,
+    contactName: contact.name
+  });
+}
+
+export function inviteLeadToPortal(lead) {
+  return sendPortalInvitation({
+    leadId: lead.id,
+    contactEmail: lead.email,
+    contactName: lead.name
+  });
+}
+
 export async function fetchSupportTickets() {
   const { data, error } = await supabase
     .from('support_tickets')
-    .select('*,contact:contacts(id,name,email,phone,company)')
+    .select('*,contact:contacts(id,name,email,phone,company),lead:leads(id,data)')
     .order('last_activity_at', { ascending: false });
   if (error) throw error;
   return data || [];
 }
 
-export async function createSupportTicket(ticket, clientProfile, user) {
+export async function createSupportTicket(ticket, clientProfile, user, lead = null) {
   const { data, error } = await supabase.from('support_tickets').insert({
-    client_user_id: clientProfile.user_id,
-    contact_id: clientProfile.contact_id,
-    lead_id: ticket.leadId || null,
+    client_user_id: clientProfile?.user_id || null,
+    contact_id: clientProfile?.contact_id || null,
+    lead_id: lead?.id || ticket.leadId || null,
     subject: ticket.subject.trim(),
     description: ticket.description.trim(),
     category: ticket.category,
@@ -328,7 +344,7 @@ export async function createSupportTicket(ticket, clientProfile, user) {
     assigned_to_name: ticket.assignee?.name || '',
     response_due_at: ticket.responseDueAt || null,
     resolution_due_at: ticket.resolutionDueAt || null
-  }).select('*,contact:contacts(id,name,email,phone,company)').single();
+  }).select('*,contact:contacts(id,name,email,phone,company),lead:leads(id,data)').single();
   if (error) throw error;
 
   const { error: messageError } = await supabase.from('support_ticket_messages').insert({
@@ -349,7 +365,7 @@ export async function updateSupportTicket(ticketId, changes) {
     .from('support_tickets')
     .update({ ...changes, updated_at: new Date().toISOString() })
     .eq('id', ticketId)
-    .select('*,contact:contacts(id,name,email,phone,company)')
+    .select('*,contact:contacts(id,name,email,phone,company),lead:leads(id,data)')
     .single();
   if (error) throw error;
   return data;

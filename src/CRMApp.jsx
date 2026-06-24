@@ -1268,7 +1268,7 @@ export default function CRMApp() {
       ) : activeWorkspace === 'contacts' ? (
         <ContactsView currentUser={currentUser} teamMembers={teamMembers} />
       ) : activeWorkspace === 'support' ? (
-        <SupportView currentUser={currentUser} teamMembers={teamMembers} />
+        <SupportView currentUser={currentUser} leads={leads} teamMembers={teamMembers} />
       ) : (
         <>
       <div className="mx-auto grid max-w-[1500px] gap-3 px-3 py-3 sm:gap-5 sm:px-6 sm:py-5 xl:grid-cols-[360px_1fr]">
