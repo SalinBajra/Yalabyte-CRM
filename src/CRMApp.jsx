@@ -819,6 +819,17 @@ export default function CRMApp() {
     );
   };
 
+  useEffect(() => {
+    if (isCreatingLead || !selectedLead || duplicateLead) return undefined;
+    const editableFields = Object.keys(initialLead);
+    const changed = editableFields.some((field) => String(draft[field] ?? '') !== String(selectedLead[field] ?? ''));
+    if (!changed) return undefined;
+    const timer = window.setTimeout(() => {
+      updateLead(selectedLead.id, Object.fromEntries(editableFields.map((field) => [field, draft[field]])));
+    }, 700);
+    return () => window.clearTimeout(timer);
+  }, [draft, selectedLead?.id, isCreatingLead, duplicateLead?.id]);
+
   const handleDraftChange = (event) => {
     const { name, value } = event.target;
     setDraft((current) => ({ ...current, [name]: value }));
@@ -1445,26 +1456,24 @@ export default function CRMApp() {
                     <p className="mt-1 text-sm text-slate-500">
                       {isCreatingLead ? 'Nothing is saved to the database until you create this lead.' : `Created ${formatDate(draft.createdAt)} from ${draft.source || 'Unknown source'}`}
                     </p>
+                    {!isCreatingLead ? <p className="mt-1 text-xs font-medium text-emerald-600">Changes save automatically</p> : null}
                   </div>
-                  <div className="flex flex-wrap gap-2">
+                  <div className="flex flex-wrap items-center gap-2 sm:justify-end">
                     {isCreatingLead ? (
-                      <button
-                        className="rounded-md border border-slate-200 bg-white px-4 py-2.5 text-sm font-bold text-slate-600 hover:bg-slate-50"
-                        onClick={cancelCreateLead}
-                        type="button"
-                      >
-                        Cancel
-                      </button>
+                      <>
+                        <button className="rounded-lg border border-slate-200 bg-white px-4 py-2.5 text-sm font-bold text-slate-600 hover:bg-slate-50" onClick={cancelCreateLead} type="button">Cancel</button>
+                        <button className="rounded-lg bg-slate-950 px-4 py-2.5 text-sm font-bold text-white shadow-sm hover:bg-slate-800 disabled:cursor-not-allowed disabled:opacity-40" disabled={Boolean(duplicateLead)} type="submit">{duplicateLead ? 'Duplicate found' : 'Create lead'}</button>
+                      </>
                     ) : <>
                       {draft.status === 'won' ? (
-                        <button className="rounded-md border border-violet-200 bg-violet-50 px-3 py-2.5 text-sm font-bold text-violet-700 hover:bg-violet-100" onClick={() => setInvoiceModal({ invoice: null })} type="button">Create invoice</button>
+                        <button className="rounded-lg bg-violet-600 px-4 py-2.5 text-sm font-bold text-white shadow-sm hover:bg-violet-700" onClick={() => setInvoiceModal({ invoice: null })} type="button">Create invoice</button>
                       ) : null}
-                      {draft.convertedContactId ? <span className="inline-flex items-center rounded-md bg-emerald-50 px-3 py-2.5 text-xs font-bold text-emerald-700">Contact linked</span> : (
-                        <button className="rounded-md border border-cyan-200 bg-cyan-50 px-3 py-2.5 text-sm font-bold text-cyan-800 hover:bg-cyan-100 disabled:opacity-60" disabled={converting} onClick={handleConvertLead} type="button">{converting ? 'Converting…' : 'Convert'}</button>
+                      {draft.convertedContactId ? <span className="inline-flex items-center gap-1.5 rounded-lg border border-emerald-200 bg-emerald-50 px-3 py-2.5 text-xs font-bold text-emerald-700"><span aria-hidden="true">✓</span> Contact linked</span> : (
+                        <button className="rounded-lg border border-cyan-200 bg-cyan-50 px-4 py-2.5 text-sm font-bold text-cyan-800 hover:bg-cyan-100 disabled:opacity-60" disabled={converting} onClick={handleConvertLead} type="button">{converting ? 'Converting…' : 'Convert to contact'}</button>
                       )}
                       {canDeleteLeads ? (
                         <button
-                          className="rounded-md border border-rose-200 bg-white px-3 py-2.5 text-sm font-bold text-rose-600 hover:bg-rose-50 disabled:cursor-wait disabled:opacity-60"
+                          className="rounded-lg border border-slate-200 bg-white px-3.5 py-2.5 text-sm font-bold text-slate-500 hover:border-rose-200 hover:bg-rose-50 hover:text-rose-600 disabled:cursor-wait disabled:opacity-60"
                           disabled={deleting}
                           onClick={handleDeleteLead}
                           type="button"
@@ -1473,9 +1482,6 @@ export default function CRMApp() {
                         </button>
                       ) : null}
                     </>}
-                    <button className="rounded-md bg-slate-950 px-4 py-2.5 text-sm font-bold text-white hover:bg-slate-800 disabled:cursor-not-allowed disabled:opacity-40" disabled={Boolean(duplicateLead)} type="submit">
-                      {duplicateLead ? 'Duplicate found' : isCreatingLead ? 'Create Lead' : 'Save Lead'}
-                    </button>
                   </div>
                 </div>
 
