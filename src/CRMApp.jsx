@@ -5,6 +5,7 @@ import LeadTasks from './LeadTasks';
 import OverviewView from './OverviewView';
 import PipelineBoard from './PipelineBoard';
 import ProfileModal from './ProfileModal';
+import SupportView from './SupportView';
 import {
   convertLeadToContact,
   deleteLeadWithAudit,
@@ -1147,7 +1148,7 @@ export default function CRMApp() {
           <div className="flex flex-wrap items-center gap-5">
             <Brand compact />
             <nav className="flex max-w-full overflow-x-auto rounded-xl border border-slate-200/80 bg-slate-100/80 p-1" aria-label="CRM workspace">
-              {[['overview', 'Overview'], ['leads', 'Leads'], ['pipeline', 'Pipeline'], ['contacts', 'Contacts']].map(([workspace, label]) => (
+              {[['overview', 'Overview'], ['leads', 'Leads'], ['pipeline', 'Pipeline'], ['contacts', 'Contacts'], ['support', 'Support']].map(([workspace, label]) => (
                 <button className={`whitespace-nowrap rounded-lg px-3 py-2 text-xs font-bold transition sm:px-3.5 sm:text-sm ${activeWorkspace === workspace ? 'bg-white text-slate-950 shadow-sm' : 'text-slate-500 hover:text-slate-800'}`} key={workspace} onClick={() => setActiveWorkspace(workspace)} type="button">{label}</button>
               ))}
             </nav>
@@ -1266,6 +1267,8 @@ export default function CRMApp() {
         <PipelineBoard leads={leads} stages={stages} onMove={moveLeadToStage} onOpenLead={openLeadWorkspace} />
       ) : activeWorkspace === 'contacts' ? (
         <ContactsView currentUser={currentUser} teamMembers={teamMembers} />
+      ) : activeWorkspace === 'support' ? (
+        <SupportView currentUser={currentUser} teamMembers={teamMembers} />
       ) : (
         <>
       <div className="mx-auto grid max-w-[1500px] gap-3 px-3 py-3 sm:gap-5 sm:px-6 sm:py-5 xl:grid-cols-[360px_1fr]">
