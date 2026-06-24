@@ -123,9 +123,10 @@ export async function fetchReadNotificationIds() {
 }
 
 export async function markDeletionNotificationsRead(notificationIds, userId) {
-  if (!notificationIds.length) return;
+  const uniqueIds = Array.from(new Set(notificationIds.filter((notificationId) => notificationId !== null && notificationId !== undefined)));
+  if (!uniqueIds.length) return;
   const { error } = await supabase.from('notification_reads').upsert(
-    notificationIds.map((notificationId) => ({ user_id: userId, notification_id: notificationId })),
+    uniqueIds.map((notificationId) => ({ user_id: userId, notification_id: notificationId })),
     { onConflict: 'user_id,notification_id' }
   );
   if (error) throw error;

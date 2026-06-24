@@ -160,6 +160,16 @@ function samePersonName(left, right) {
   return Boolean(left && right && left.trim().localeCompare(right.trim(), undefined, { sensitivity: 'base' }) === 0);
 }
 
+function uniqueNotifications(items) {
+  const seen = new Set();
+  return items.filter((item) => {
+    const id = String(item?.id ?? '');
+    if (!id || seen.has(id)) return false;
+    seen.add(id);
+    return true;
+  });
+}
+
 function money(value) {
   const amount = Number(value || 0);
   return `Rs ${new Intl.NumberFormat('en-NP', { maximumFractionDigits: 0 }).format(amount)}`;
@@ -634,7 +644,7 @@ export default function CRMApp() {
         if (!active) return;
         setLeads(nextLeads);
         if (membersResult.status === 'fulfilled') setTeamMembers(membersResult.value);
-        if (notificationsResult.status === 'fulfilled') setNotifications(notificationsResult.value);
+        if (notificationsResult.status === 'fulfilled') setNotifications(uniqueNotifications(notificationsResult.value));
         if (readNotificationsResult.status === 'fulfilled') setReadNotificationIds((current) => Array.from(new Set([...current, ...readNotificationsResult.value])));
         if (membersResult.status === 'rejected' || notificationsResult.status === 'rejected') {
           setDataError('Team ownership and audit features require the latest Supabase migration.');
@@ -693,7 +703,7 @@ export default function CRMApp() {
         fetchTeamMembers().then(setTeamMembers).catch(() => {});
       })
       .on('postgres_changes', { event: 'INSERT', schema: 'public', table: 'lead_deletion_notifications' }, (payload) => {
-        setNotifications((current) => [payload.new, ...current].slice(0, 30));
+        setNotifications((current) => uniqueNotifications([payload.new, ...current]).slice(0, 30));
       })
       .subscribe();
 
@@ -980,9 +990,9 @@ export default function CRMApp() {
       if (supabase) {
         await deleteLeadWithAudit(selectedLead.id, currentUser.name);
         const updatedNotifications = await fetchDeletionNotifications();
-        setNotifications(updatedNotifications);
+        setNotifications(uniqueNotifications(updatedNotifications));
       } else {
-        setNotifications((current) => [
+        setNotifications((current) => uniqueNotifications([
           {
             id: createId('deletion'),
             lead_id: selectedLead.id,
@@ -992,7 +1002,7 @@ export default function CRMApp() {
             deleted_at: new Date().toISOString()
           },
           ...current
-        ]);
+        ]));
       }
 
       const remainingLeads = leads.filter((lead) => lead.id !== selectedLead.id);
