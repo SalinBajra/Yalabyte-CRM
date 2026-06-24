@@ -43,15 +43,21 @@ export async function saveLeads(leads) {
 }
 
 export async function registerTeamMember(user) {
-  const { error } = await supabase.from('team_members').upsert(
-    {
-      user_id: user.id,
-      name: user.name,
-      email: user.email.toLowerCase(),
-      last_seen_at: new Date().toISOString()
-    },
-    { onConflict: 'user_id' }
-  );
+  const changes = {
+    name: user.name,
+    email: user.email.toLowerCase(),
+    last_seen_at: new Date().toISOString()
+  };
+  const { data: existing, error: lookupError } = await supabase
+    .from('team_members')
+    .select('user_id')
+    .eq('user_id', user.id)
+    .maybeSingle();
+  if (lookupError) throw lookupError;
+
+  const { error } = existing
+    ? await supabase.from('team_members').update(changes).eq('user_id', user.id)
+    : await supabase.from('team_members').insert({ user_id: user.id, ...changes });
   if (error) throw error;
 }
 
