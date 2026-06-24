@@ -827,9 +827,13 @@ export default function CRMApp() {
         setSelectedId(lead.id);
         setIsCreatingLead(false);
         setSyncState('saved');
-        if (supabase) notifyCliqNewLead(lead, currentUser).catch(() => {
-          setDataError('Lead saved, but the Cliq team notification could not be delivered.');
-        });
+        if (supabase) {
+          try {
+            await notifyCliqNewLead(lead, currentUser);
+          } catch {
+            setDataError('Lead saved, but the Cliq team notification could not be delivered.');
+          }
+        }
       } catch (error) {
         setSyncState('error');
         setDataError(error.message || 'Unable to create this lead.');
