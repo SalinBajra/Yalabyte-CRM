@@ -218,6 +218,22 @@ function Brand({ compact = false, inverted = false }) {
   );
 }
 
+function WorkspaceLoader({ user }) {
+  const initials = user?.name?.split(' ').map((part) => part[0]).slice(0, 2).join('') || 'YB';
+  return (
+    <main className="login-shell flex min-h-screen items-center justify-center px-5 text-white">
+      <div className="text-center">
+        <div className="flex justify-center"><Brand inverted /></div>
+        <span className="mx-auto mt-10 flex h-16 w-16 items-center justify-center rounded-full border border-cyanbrand-400/30 bg-white/10 text-lg font-extrabold text-cyanbrand-300 shadow-[0_0_40px_rgba(34,211,238,0.15)]">{initials}</span>
+        <p className="mt-6 text-xs font-extrabold uppercase tracking-[0.2em] text-cyanbrand-400">Team workspace</p>
+        <h1 className="mt-3 text-2xl font-extrabold tracking-tight sm:text-3xl">Welcome, {user?.name || 'team member'}</h1>
+        <p className="mt-2 text-sm text-slate-300">Your YalaByte workspace is getting everything ready.</p>
+        <span className="mx-auto mt-6 block h-1 w-24 overflow-hidden rounded-full bg-white/10"><span className="block h-full w-1/2 animate-pulse rounded-full bg-cyanbrand-400" /></span>
+      </div>
+    </main>
+  );
+}
+
 function BellIcon() {
   return <svg aria-hidden="true" className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth="1.8"><path strokeLinecap="round" strokeLinejoin="round" d="M14.857 17.082a23.9 23.9 0 0 0 5.454-1.31A8.97 8.97 0 0 1 18 9.75V9a6 6 0 0 0-12 0v.75a8.97 8.97 0 0 1-2.311 6.022 23.9 23.9 0 0 0 5.454 1.31m5.714 0a24.25 24.25 0 0 1-5.714 0m5.714 0a3 3 0 1 1-5.714 0" /></svg>;
 }
@@ -1044,7 +1060,7 @@ export default function CRMApp() {
   }
 
   if (!dataReady) {
-    return <main className="login-shell flex min-h-screen items-center justify-center text-sm font-semibold text-white">Loading shared leads…</main>;
+    return <WorkspaceLoader user={currentUser} />;
   }
 
   const activeTone = stages.find((stage) => stage.id === draft.status)?.tone || stages[0].tone;
@@ -1084,6 +1100,7 @@ export default function CRMApp() {
             </nav>
           </div>
           <div className="flex flex-wrap items-center gap-2">
+            <span className="mr-0.5 hidden text-xs font-semibold text-slate-400 xl:inline">Welcome,</span>
             <button className="mr-1 hidden items-center gap-2.5 rounded-xl px-2 py-1.5 text-left transition hover:bg-slate-100 sm:flex" onClick={() => setProfileOpen(true)} type="button" title="Update profile">
               <span className="relative h-10 w-10 shrink-0">
                 <span className="flex h-10 w-10 items-center justify-center overflow-hidden rounded-full bg-navy-950 text-xs font-extrabold uppercase text-cyanbrand-400">
