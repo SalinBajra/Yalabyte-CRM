@@ -163,9 +163,9 @@ function samePersonName(left, right) {
 function uniqueNotifications(items) {
   const seen = new Set();
   return items.filter((item) => {
-    const id = String(item?.id ?? '');
-    if (!id || seen.has(id)) return false;
-    seen.add(id);
+    const key = item?.lead_id ? `lead:${item.lead_id}` : `notification:${String(item?.id ?? '')}`;
+    if (key === 'notification:' || seen.has(key)) return false;
+    seen.add(key);
     return true;
   });
 }
@@ -1085,6 +1085,7 @@ export default function CRMApp() {
   const unreadNotificationCount = notifications.filter((notification) => !readNotificationIdSet.has(notification.id)).length;
 
   const markAllNotificationsRead = async () => {
+    setDataError('');
     const nextIds = Array.from(new Set([...readNotificationIds, ...notifications.map((notification) => notification.id)]));
     setReadNotificationIds(nextIds);
     window.localStorage.setItem(`${READ_NOTIFICATIONS_KEY}:${currentUser.id}`, JSON.stringify(nextIds));

@@ -127,7 +127,7 @@ export async function markDeletionNotificationsRead(notificationIds, userId) {
   if (!uniqueIds.length) return;
   const { error } = await supabase.from('notification_reads').upsert(
     uniqueIds.map((notificationId) => ({ user_id: userId, notification_id: notificationId })),
-    { onConflict: 'user_id,notification_id' }
+    { onConflict: 'user_id,notification_id', ignoreDuplicates: true }
   );
   if (error) throw error;
 }
