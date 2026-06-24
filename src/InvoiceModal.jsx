@@ -30,7 +30,7 @@ function readableDate(value) {
 }
 
 async function loadLogo() {
-  const response = await fetch('/images/yalabyte-logo-transparent.png');
+  const response = await fetch('/favicon.png');
   if (!response.ok) throw new Error('Logo unavailable');
   const blob = await response.blob();
   return new Promise((resolve, reject) => {
@@ -53,7 +53,7 @@ async function downloadInvoicePdf(invoice) {
   pdf.rect(0, 0, 210, 42, 'F');
   try {
     const logo = await loadLogo();
-    pdf.addImage(logo, 'PNG', 15, 10, 23, 23);
+    pdf.addImage(logo, 'PNG', 15, 9.5, 24, 24);
   } catch {
     pdf.setFillColor(...cyan);
     pdf.roundedRect(15, 10, 23, 23, 3, 3, 'F');
@@ -65,12 +65,12 @@ async function downloadInvoicePdf(invoice) {
   pdf.setTextColor(255, 255, 255);
   pdf.setFont('helvetica', 'bold');
   pdf.setFontSize(18);
-  pdf.text('YalaByte', 43, 19);
+  pdf.text('YalaByte', 45, 18.5);
   pdf.setFont('helvetica', 'normal');
   pdf.setFontSize(8);
   pdf.setTextColor(177, 197, 214);
-  pdf.text('WEBSITE DESIGN & DEVELOPMENT', 43, 25);
-  pdf.text('info@yalabyte.com  |  www.yalabyte.com', 43, 30);
+  pdf.text('WEBSITE DESIGN & DEVELOPMENT', 45, 24.5);
+  pdf.text('info@yalabyte.com  |  www.yalabyte.com', 45, 30);
 
   pdf.setTextColor(255, 255, 255);
   pdf.setFont('helvetica', 'bold');
@@ -109,19 +109,21 @@ async function downloadInvoicePdf(invoice) {
   pdf.text(readableDate(invoice.issueDate), 140, 62);
   pdf.text(readableDate(invoice.dueDate), 175, 62);
 
-  const tableY = 92;
+  const tableY = 88;
   pdf.setFillColor(...navy);
   pdf.roundedRect(15, tableY, 180, 10, 2, 2, 'F');
   pdf.setTextColor(255, 255, 255);
   pdf.setFont('helvetica', 'bold');
   pdf.setFontSize(8);
   pdf.text('DESCRIPTION', 20, tableY + 6.3);
-  pdf.text('QTY', 143, tableY + 6.3, { align: 'center' });
-  pdf.text('RATE', 168, tableY + 6.3, { align: 'right' });
+  pdf.text('QTY', 145, tableY + 6.3, { align: 'center' });
+  pdf.text('RATE', 169, tableY + 6.3, { align: 'right' });
   pdf.text('AMOUNT', 190, tableY + 6.3, { align: 'right' });
 
   pdf.setFillColor(248, 250, 252);
-  pdf.rect(15, tableY + 12, 180, 32, 'F');
+  pdf.rect(15, tableY + 12, 180, 29, 'F');
+  pdf.setFillColor(...cyan);
+  pdf.rect(15, tableY + 12, 1.5, 29, 'F');
   pdf.setTextColor(...navy);
   pdf.setFontSize(10);
   pdf.text(invoice.projectTitle || 'Website development services', 20, tableY + 21);
@@ -132,11 +134,11 @@ async function downloadInvoicePdf(invoice) {
   pdf.text(description.slice(0, 3), 20, tableY + 27);
   pdf.setTextColor(...navy);
   pdf.setFontSize(9);
-  pdf.text('1', 143, tableY + 21, { align: 'center' });
-  pdf.text(money(invoice.subtotal), 168, tableY + 21, { align: 'right' });
+  pdf.text('1', 145, tableY + 21, { align: 'center' });
+  pdf.text(money(invoice.subtotal), 169, tableY + 21, { align: 'right' });
   pdf.text(money(invoice.subtotal), 190, tableY + 21, { align: 'right' });
 
-  const summaryY = tableY + 55;
+  const summaryY = tableY + 52;
   const summary = [
     ['Subtotal', money(invoice.subtotal)],
     [`Tax (${invoice.taxRate}%)`, money(invoice.taxAmount)],
@@ -151,22 +153,28 @@ async function downloadInvoicePdf(invoice) {
     pdf.text(value, 190, y, { align: 'right' });
   });
 
-  const dueY = summaryY + 29;
+  const dueY = summaryY + 28;
   pdf.setFillColor(232, 250, 252);
-  pdf.roundedRect(105, dueY, 90, 25, 3, 3, 'F');
+  pdf.roundedRect(15, dueY, 180, 28, 3, 3, 'F');
+  pdf.setFillColor(...cyan);
+  pdf.roundedRect(15, dueY, 3, 28, 2, 2, 'F');
   pdf.setTextColor(8, 110, 126);
   pdf.setFont('helvetica', 'bold');
   pdf.setFontSize(8);
-  pdf.text(invoice.paymentLabel.toUpperCase(), 112, dueY + 7);
+  pdf.text(invoice.paymentLabel.toUpperCase(), 24, dueY + 8);
   pdf.setFontSize(16);
   pdf.setTextColor(...navy);
-  pdf.text(money(invoice.amountDue), 112, dueY + 17);
+  pdf.text(money(invoice.amountDue), 24, dueY + 19);
   pdf.setFontSize(8);
+  pdf.setFont('helvetica', 'bold');
+  pdf.setTextColor(8, 110, 126);
+  pdf.text('REMAINING AFTER THIS PAYMENT', 187, dueY + 8, { align: 'right' });
   pdf.setFont('helvetica', 'normal');
-  pdf.setTextColor(...slate);
-  pdf.text(`Remaining balance: ${money(invoice.remainingBalance)}`, 190, dueY + 17, { align: 'right' });
+  pdf.setTextColor(...navy);
+  pdf.setFontSize(12);
+  pdf.text(money(invoice.remainingBalance), 187, dueY + 19, { align: 'right' });
 
-  let notesY = 205;
+  const notesY = dueY + 43;
   pdf.setDrawColor(226, 232, 240);
   pdf.line(15, notesY - 7, 195, notesY - 7);
   pdf.setFont('helvetica', 'bold');
@@ -295,7 +303,7 @@ export default function InvoiceModal({ lead, invoice: existingInvoice, currentUs
 
           <aside className="lg:sticky lg:top-24 lg:self-start">
             <div className="overflow-hidden rounded-2xl border border-slate-200 bg-slate-50">
-              <div className="bg-navy-950 p-5 text-white"><div className="flex items-center gap-3"><img className="h-11 w-11 rounded-xl bg-white object-contain p-1" src="/images/yalabyte-logo-transparent.png" alt="" /><div><p className="text-lg font-extrabold">YalaByte</p><p className="text-[10px] font-bold uppercase tracking-[0.15em] text-cyanbrand-300">Invoice preview</p></div></div></div>
+              <div className="bg-navy-950 p-5 text-white"><div className="flex items-center gap-3"><img className="h-11 w-11 rounded-xl bg-white object-contain p-1" src="/favicon.png" alt="" /><div><p className="text-lg font-extrabold">YalaByte</p><p className="text-[10px] font-bold uppercase tracking-[0.15em] text-cyanbrand-300">Invoice preview</p></div></div></div>
               <div className="space-y-3 p-5 text-sm"><div className="flex justify-between gap-3"><span className="text-slate-500">Project total</span><strong>{money(totals.grandTotal)}</strong></div><div className="flex justify-between gap-3"><span className="text-slate-500">Tax</span><strong>{money(totals.taxAmount)}</strong></div>{totals.previouslyPaid > 0 ? <div className="flex justify-between gap-3"><span className="text-slate-500">Already paid</span><strong className="text-emerald-700">− {money(totals.previouslyPaid)}</strong></div> : null}<div className="border-t border-slate-200 pt-3"><p className="text-xs font-extrabold uppercase tracking-[0.12em] text-cyan-700">{totals.paymentLabel}</p><p className="mt-1 text-2xl font-extrabold text-slate-950">{money(totals.amountDue)}</p></div><div className="flex justify-between gap-3 rounded-lg bg-white px-3 py-2"><span className="text-slate-500">Remaining after payment</span><strong>{money(totals.remainingBalance)}</strong></div></div>
             </div>
             {error ? <p className="mt-3 rounded-lg bg-rose-50 px-3 py-2 text-xs font-medium text-rose-700">{error}</p> : null}
