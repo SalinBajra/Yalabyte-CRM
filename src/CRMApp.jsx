@@ -516,6 +516,8 @@ export default function CRMApp() {
   const [stageFilter, setStageFilter] = useState('all');
   const [ownerFilter, setOwnerFilter] = useState('all');
   const [followUpFilter, setFollowUpFilter] = useState('all');
+  const [sortBy, setSortBy] = useState('newest');
+  const [copiedLeadId, setCopiedLeadId] = useState('');
   const [note, setNote] = useState('');
   const [teamMembers, setTeamMembers] = useState([]);
   const [notifications, setNotifications] = useState([]);
@@ -675,7 +677,7 @@ export default function CRMApp() {
 
   const filteredLeads = useMemo(() => {
     const normalizedQuery = query.trim().toLowerCase();
-    return leads.filter((lead) => {
+    const matchingLeads = leads.filter((lead) => {
       const matchesStage = stageFilter === 'all' || lead.status === stageFilter;
       const matchesOwner = ownerFilter === 'all'
         || (ownerFilter === 'mine' && samePersonName(lead.owner, currentUser?.name))
@@ -695,7 +697,17 @@ export default function CRMApp() {
           .some((value) => value.toLowerCase().includes(normalizedQuery));
       return matchesStage && matchesOwner && matchesFollowUp && matchesQuery;
     });
-  }, [leads, query, stageFilter, ownerFilter, followUpFilter, currentUser?.name]);
+    return matchingLeads.sort((left, right) => {
+      if (sortBy === 'followup') {
+        const leftDate = left.followUpDate ? new Date(left.followUpDate).getTime() : Number.MAX_SAFE_INTEGER;
+        const rightDate = right.followUpDate ? new Date(right.followUpDate).getTime() : Number.MAX_SAFE_INTEGER;
+        return leftDate - rightDate;
+      }
+      if (sortBy === 'value') return Number(right.value || 0) - Number(left.value || 0);
+      if (sortBy === 'name') return (left.name || '').localeCompare(right.name || '');
+      return new Date(right.updatedAt || right.createdAt || 0) - new Date(left.updatedAt || left.createdAt || 0);
+    });
+  }, [leads, query, stageFilter, ownerFilter, followUpFilter, sortBy, currentUser?.name]);
 
   const duplicateLead = useMemo(() => {
     const email = normalizedEmail(draft.email);
@@ -740,6 +752,20 @@ export default function CRMApp() {
   const handleDraftChange = (event) => {
     const { name, value } = event.target;
     setDraft((current) => ({ ...current, [name]: value }));
+  };
+
+  const copyLeadContact = async () => {
+    if (!selectedLead) return;
+    const details = [selectedLead.name, selectedLead.company, selectedLead.email, selectedLead.phone]
+      .filter(Boolean)
+      .join('\n');
+    try {
+      await window.navigator.clipboard.writeText(details);
+      setCopiedLeadId(selectedLead.id);
+      window.setTimeout(() => setCopiedLeadId(''), 1800);
+    } catch {
+      setDataError('Unable to copy contact details from this browser.');
+    }
   };
 
   const saveDraft = async (event) => {
@@ -901,6 +927,8 @@ export default function CRMApp() {
   const activeTone = stages.find((stage) => stage.id === draft.status)?.tone || stages[0].tone;
   const ownerOptions = Array.from(new Set([...teamMembers.map((member) => member.name), draft.owner].filter(Boolean)));
   const leadOwnerOptions = Array.from(new Set(leads.map((lead) => lead.owner).filter(Boolean))).sort();
+  const stageCounts = Object.fromEntries(stages.map((stage) => [stage.id, leads.filter((lead) => lead.status === stage.id).length]));
+  const activeFilterCount = Number(Boolean(query.trim())) + Number(stageFilter !== 'all') + Number(ownerFilter !== 'all') + Number(followUpFilter !== 'all');
   const currentProfile = teamMembers.find((member) => member.user_id === currentUser.id);
   const profileStatusTone = currentProfile?.status === 'busy' ? 'bg-rose-500' : currentProfile?.status === 'away' ? 'bg-amber-400' : currentProfile?.status === 'offline' ? 'bg-slate-400' : 'bg-emerald-500';
   const readNotificationIdSet = new Set(readNotificationIds);
@@ -1078,26 +1106,53 @@ export default function CRMApp() {
                 </select>
               </label>
             </div>
-            <p className="mb-2 mt-4 text-[10px] font-extrabold uppercase tracking-[0.14em] text-slate-400">Filter by stage</p>
+            <div className="mt-3 flex items-end gap-2">
+              <label className="min-w-0 flex-1 text-[10px] font-extrabold uppercase tracking-[0.12em] text-slate-400">
+                Sort leads
+                <select className="mt-1.5 w-full rounded-lg border border-slate-200 bg-white px-2.5 py-2 text-xs font-semibold normal-case tracking-normal text-slate-700 outline-none focus:border-cyanbrand-500" value={sortBy} onChange={(event) => setSortBy(event.target.value)}>
+                  <option value="newest">Recently updated</option>
+                  <option value="followup">Follow-up date</option>
+                  <option value="value">Highest value</option>
+                  <option value="name">Name A–Z</option>
+                </select>
+              </label>
+              {activeFilterCount ? (
+                <button
+                  className="rounded-lg px-3 py-2 text-xs font-bold text-slate-500 transition hover:bg-slate-100 hover:text-slate-800"
+                  onClick={() => {
+                    setQuery('');
+                    setStageFilter('all');
+                    setOwnerFilter('all');
+                    setFollowUpFilter('all');
+                  }}
+                  type="button"
+                >
+                  Clear {activeFilterCount}
+                </button>
+              ) : null}
+            </div>
+            <p className="mb-2 mt-4 text-[10px] font-extrabold uppercase tracking-[0.14em] text-slate-400">Pipeline stage</p>
             <div className="grid grid-cols-3 gap-2">
               <button
-                className={`rounded-lg px-2 py-2 text-xs font-bold transition ${stageFilter === 'all' ? 'bg-slate-950 text-white shadow-sm' : 'bg-slate-100 text-slate-600 hover:bg-slate-200'}`}
+                className={`flex items-center justify-between gap-1 rounded-lg px-2 py-2 text-xs font-bold transition ${stageFilter === 'all' ? 'bg-slate-950 text-white shadow-sm' : 'bg-slate-100 text-slate-600 hover:bg-slate-200'}`}
                 onClick={() => setStageFilter('all')}
+                type="button"
               >
-                All
+                <span>All</span><span className="opacity-60">{leads.length}</span>
               </button>
               {stages.map((stage) => (
                 <button
                   key={stage.id}
-                  className={`rounded-lg px-2 py-2 text-xs font-bold transition ${stageFilter === stage.id ? 'bg-slate-950 text-white shadow-sm' : 'bg-slate-100 text-slate-600 hover:bg-slate-200'}`}
+                  className={`flex items-center justify-between gap-1 rounded-lg px-2 py-2 text-xs font-bold transition ${stageFilter === stage.id ? 'bg-slate-950 text-white shadow-sm' : 'bg-slate-100 text-slate-600 hover:bg-slate-200'}`}
                   onClick={() => setStageFilter(stage.id)}
+                  type="button"
                 >
-                  {stage.label}
+                  <span>{stage.label}</span><span className="opacity-60">{stageCounts[stage.id] || 0}</span>
                 </button>
               ))}
             </div>
           </div>
-          <div className="max-h-[calc(100vh-420px)] overflow-y-auto">
+          <div className="max-h-[calc(100vh-485px)] overflow-y-auto">
             {filteredLeads.map((lead) => {
               const due = daysUntil(lead.followUpDate);
               return (
@@ -1123,7 +1178,10 @@ export default function CRMApp() {
                     <span className="shrink-0 font-semibold text-slate-700">{money(lead.value)}</span>
                   </div>
                   <div className="mt-2 flex items-center justify-between text-xs text-slate-500">
-                    <span>{lead.priority || 'Medium'} priority</span>
+                    <span className="flex min-w-0 items-center gap-1.5 truncate font-medium text-slate-600">
+                      <span className="flex h-5 w-5 shrink-0 items-center justify-center rounded-full bg-slate-100 text-[9px] font-extrabold text-slate-600">{lead.owner?.charAt(0)?.toUpperCase() || '?'}</span>
+                      <span className="truncate">{lead.owner || 'Unassigned'}</span>
+                    </span>
                     {due < 0 ? <span className="rounded-md bg-rose-50 px-2 py-1 font-bold text-rose-700">Overdue {Math.abs(due)}d</span>
                       : due === 0 ? <span className="rounded-md bg-amber-50 px-2 py-1 font-bold text-amber-700">Due today</span>
                       : <span>{formatDate(lead.followUpDate)}</span>}
@@ -1131,7 +1189,13 @@ export default function CRMApp() {
                 </button>
               );
             })}
-            {!filteredLeads.length ? <p className="p-5 text-sm text-slate-500">No leads match this view.</p> : null}
+            {!filteredLeads.length ? (
+              <div className="px-5 py-8 text-center">
+                <p className="text-sm font-semibold text-slate-700">No leads match this view</p>
+                <p className="mt-1 text-xs leading-5 text-slate-400">Try clearing the filters or changing your search.</p>
+                {activeFilterCount ? <button className="mt-3 rounded-lg bg-slate-100 px-3 py-2 text-xs font-bold text-slate-600 hover:bg-slate-200" onClick={() => { setQuery(''); setStageFilter('all'); setOwnerFilter('all'); setFollowUpFilter('all'); }} type="button">Clear filters</button> : null}
+              </div>
+            ) : null}
           </div>
         </aside>
 
@@ -1177,6 +1241,25 @@ export default function CRMApp() {
                     </button>
                   </div>
                 </div>
+
+                {!isCreatingLead && (draft.email || draft.phone) ? (
+                  <div className="mt-4 flex flex-wrap items-center gap-2 rounded-xl border border-slate-200 bg-slate-50/80 p-2.5">
+                    <span className="mr-auto px-1.5 text-xs font-semibold text-slate-500">Quick contact</span>
+                    {draft.email ? (
+                      <a className="rounded-lg border border-slate-200 bg-white px-3 py-2 text-xs font-bold text-slate-700 shadow-sm transition hover:border-cyan-200 hover:text-cyan-700" href={`mailto:${draft.email}`}>
+                        Email lead
+                      </a>
+                    ) : null}
+                    {draft.phone ? (
+                      <a className="rounded-lg border border-slate-200 bg-white px-3 py-2 text-xs font-bold text-slate-700 shadow-sm transition hover:border-cyan-200 hover:text-cyan-700" href={`tel:${draft.phone.replace(/\s/g, '')}`}>
+                        Call lead
+                      </a>
+                    ) : null}
+                    <button className="rounded-lg border border-slate-200 bg-white px-3 py-2 text-xs font-bold text-slate-700 shadow-sm transition hover:border-cyan-200 hover:text-cyan-700" onClick={copyLeadContact} type="button">
+                      {copiedLeadId === selectedLead?.id ? 'Copied!' : 'Copy details'}
+                    </button>
+                  </div>
+                ) : null}
 
                 {duplicateLead ? (
                   <div className="mt-4 flex flex-col gap-3 rounded-xl border border-amber-200 bg-amber-50 px-4 py-3 sm:flex-row sm:items-center sm:justify-between">
