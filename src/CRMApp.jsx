@@ -180,13 +180,13 @@ function Stat({ label, value, icon = 'leads', tone = 'cyan' }) {
     amber: 'border-amber-100 bg-amber-50 text-amber-700'
   };
   return (
-    <div className="group flex items-center gap-3 border-r border-slate-200/80 px-5 py-4 transition hover:bg-white last:border-r-0">
-      <span className={`flex h-10 w-10 shrink-0 items-center justify-center rounded-xl border ${tones[tone] || tones.cyan}`}>
+    <div className="group flex items-center gap-2.5 border-r border-slate-200/80 px-3 py-3 transition hover:bg-white last:border-r-0 sm:gap-3 sm:px-5 sm:py-4">
+      <span className={`flex h-9 w-9 shrink-0 items-center justify-center rounded-lg border sm:h-10 sm:w-10 sm:rounded-xl ${tones[tone] || tones.cyan}`}>
         <MetricIcon type={icon} />
       </span>
-      <div>
+      <div className="min-w-0">
         <p className="text-[10px] font-extrabold uppercase tracking-[0.15em] text-slate-500">{label}</p>
-        <p className="mt-1 text-xl font-extrabold tracking-tight text-slate-950">{value}</p>
+        <p className="mt-0.5 truncate text-lg font-extrabold tracking-tight text-slate-950 sm:mt-1 sm:text-xl">{value}</p>
       </div>
     </div>
   );
@@ -518,6 +518,8 @@ export default function CRMApp() {
   const [followUpFilter, setFollowUpFilter] = useState('all');
   const [sortBy, setSortBy] = useState('newest');
   const [copiedLeadId, setCopiedLeadId] = useState('');
+  const [mobilePane, setMobilePane] = useState('list');
+  const [mobileFiltersOpen, setMobileFiltersOpen] = useState(false);
   const [note, setNote] = useState('');
   const [teamMembers, setTeamMembers] = useState([]);
   const [notifications, setNotifications] = useState([]);
@@ -814,12 +816,14 @@ export default function CRMApp() {
     });
     setSelectedId('');
     setIsCreatingLead(true);
+    setMobilePane('detail');
   };
 
   const cancelCreateLead = () => {
     setIsCreatingLead(false);
     setSelectedId(leads[0]?.id || '');
     setDraft(initialLead);
+    setMobilePane('list');
   };
 
   const addActivity = () => {
@@ -943,7 +947,7 @@ export default function CRMApp() {
   return (
     <main className="crm-shell min-h-screen text-slate-950">
       <div className="sticky top-0 z-20 border-b border-slate-200/80 bg-white/90 shadow-[0_1px_16px_rgba(15,23,42,0.05)] backdrop-blur-xl">
-        <div className="mx-auto flex max-w-[1500px] flex-col gap-4 px-4 py-3.5 sm:px-6 lg:flex-row lg:items-center lg:justify-between">
+        <div className="mx-auto flex max-w-[1500px] flex-col gap-2.5 px-3 py-2.5 sm:gap-4 sm:px-6 sm:py-3.5 lg:flex-row lg:items-center lg:justify-between">
           <div className="flex flex-wrap items-center gap-5">
             <Brand compact />
             <nav className="flex rounded-xl border border-slate-200/80 bg-slate-100/80 p-1" aria-label="CRM workspace">
@@ -1013,10 +1017,10 @@ export default function CRMApp() {
                 </div>
               ) : null}
             </div>
-            <button className="flex h-10 w-10 items-center justify-center rounded-xl border border-slate-200 bg-white text-slate-600 transition hover:border-slate-300 hover:bg-slate-50" onClick={exportLeads} aria-label="Export leads" title="Export leads">
+            <button className="hidden h-10 w-10 items-center justify-center rounded-xl border border-slate-200 bg-white text-slate-600 transition hover:border-slate-300 hover:bg-slate-50 sm:flex" onClick={exportLeads} aria-label="Export leads" title="Export leads">
               <ExportIcon />
             </button>
-            <button className="flex h-10 w-10 items-center justify-center rounded-xl border border-slate-200 bg-white text-slate-600 transition hover:border-slate-300 hover:bg-slate-50" onClick={() => importInputRef.current?.click()} aria-label="Import leads" title="Import leads">
+            <button className="hidden h-10 w-10 items-center justify-center rounded-xl border border-slate-200 bg-white text-slate-600 transition hover:border-slate-300 hover:bg-slate-50 sm:flex" onClick={() => importInputRef.current?.click()} aria-label="Import leads" title="Import leads">
               <ImportIcon />
             </button>
             <input ref={importInputRef} className="hidden" type="file" accept="application/json" onChange={importLeads} />
@@ -1025,7 +1029,8 @@ export default function CRMApp() {
               disabled={isCreatingLead}
               onClick={createLead}
             >
-              {isCreatingLead ? 'Drafting…' : 'New Lead'}
+              <span className="sm:hidden">{isCreatingLead ? 'Drafting…' : 'New'}</span>
+              <span className="hidden sm:inline">{isCreatingLead ? 'Drafting…' : 'New Lead'}</span>
             </button>
             <button className="flex h-10 w-10 items-center justify-center rounded-xl border border-slate-200 bg-white text-slate-600 transition hover:border-rose-200 hover:bg-rose-50 hover:text-rose-600" onClick={signOut} aria-label="Sign out" title="Sign out">
               <SignOutIcon />
@@ -1050,15 +1055,20 @@ export default function CRMApp() {
         </div>
       ) : null}
 
-      <div className="mx-auto grid max-w-[1500px] gap-5 px-4 py-5 sm:px-6 xl:grid-cols-[360px_1fr]">
-        <aside className="overflow-hidden rounded-2xl border border-slate-200/90 bg-white shadow-card">
+      <div className="mx-auto grid max-w-[1500px] gap-3 px-3 py-3 sm:gap-5 sm:px-6 sm:py-5 xl:grid-cols-[360px_1fr]">
+        <aside className={`${mobilePane === 'detail' ? 'hidden md:block' : 'block'} overflow-hidden rounded-xl border border-slate-200/90 bg-white shadow-card sm:rounded-2xl`}>
           <div className="border-b border-slate-200 p-4">
             <div className="mb-3 flex items-center justify-between">
               <div>
                 <p className="text-[10px] font-extrabold uppercase tracking-[0.16em] text-cyan-700">Pipeline</p>
                 <h2 className="mt-0.5 text-lg font-extrabold tracking-tight">Lead opportunities</h2>
               </div>
-              <span className="rounded-lg border border-slate-200 bg-white px-2.5 py-1 text-[11px] font-bold text-slate-500">{filteredLeads.length} shown</span>
+              <div className="flex items-center gap-2">
+                <button className="rounded-lg bg-slate-100 px-2.5 py-1.5 text-[11px] font-bold text-slate-600 sm:hidden" onClick={() => setMobileFiltersOpen((open) => !open)} type="button">
+                  Filters{activeFilterCount ? ` (${activeFilterCount})` : ''}
+                </button>
+                <span className="rounded-lg border border-slate-200 bg-white px-2.5 py-1 text-[11px] font-bold text-slate-500">{filteredLeads.length} shown</span>
+              </div>
             </div>
             <div className="relative">
               <span className="pointer-events-none absolute left-3.5 top-1/2 -translate-y-1/2 text-slate-400"><SearchIcon /></span>
@@ -1069,6 +1079,7 @@ export default function CRMApp() {
                 onChange={(event) => setQuery(event.target.value)}
               />
             </div>
+            <div className={`${mobileFiltersOpen ? 'block' : 'hidden'} sm:block`}>
             <div className="mt-3 grid grid-cols-2 gap-2">
               <button
                 className={`rounded-lg px-3 py-2.5 text-xs font-bold transition ${ownerFilter === 'mine' ? 'bg-cyan-100 text-cyan-800 ring-1 ring-cyan-200' : 'bg-slate-100 text-slate-600 hover:bg-slate-200'}`}
@@ -1151,17 +1162,19 @@ export default function CRMApp() {
                 </button>
               ))}
             </div>
+            </div>
           </div>
-          <div className="max-h-[calc(100vh-485px)] overflow-y-auto">
+          <div className="max-h-[calc(100vh-285px)] overflow-y-auto sm:max-h-[calc(100vh-485px)]">
             {filteredLeads.map((lead) => {
               const due = daysUntil(lead.followUpDate);
               return (
                 <button
                   key={lead.id}
-                  className={`relative block w-full border-b border-slate-100 p-4 text-left transition hover:bg-slate-50 ${selectedLead?.id === lead.id ? 'border-l-4 border-l-cyanbrand-500 bg-cyan-50/70 pl-3' : 'border-l-4 border-l-transparent bg-white pl-3'}`}
+                  className={`relative block w-full border-b border-slate-100 p-3 text-left transition hover:bg-slate-50 sm:p-4 ${selectedLead?.id === lead.id ? 'border-l-4 border-l-cyanbrand-500 bg-cyan-50/70' : 'border-l-4 border-l-transparent bg-white'}`}
                   onClick={() => {
                     setIsCreatingLead(false);
                     setSelectedId(lead.id);
+                    setMobilePane('detail');
                   }}
                 >
                   <div className="flex items-start justify-between gap-3">
@@ -1199,10 +1212,13 @@ export default function CRMApp() {
           </div>
         </aside>
 
-        <section className="grid gap-5 lg:grid-cols-[1fr_360px]">
-          <form className="rounded-2xl border border-slate-200/90 bg-white p-4 shadow-card sm:p-6" onSubmit={saveDraft}>
+        <section className={`${mobilePane === 'list' ? 'hidden md:grid' : 'grid'} gap-3 sm:gap-5 lg:grid-cols-[1fr_360px]`}>
+          <form className="rounded-xl border border-slate-200/90 bg-white p-3 shadow-card sm:rounded-2xl sm:p-6" onSubmit={saveDraft}>
             {selectedLead || isCreatingLead ? (
               <>
+                <button className="mb-3 inline-flex items-center gap-1.5 rounded-lg bg-slate-100 px-3 py-2 text-xs font-bold text-slate-600 md:hidden" onClick={() => setMobilePane('list')} type="button">
+                  <span aria-hidden="true">←</span> Back to leads
+                </button>
                 <div className="flex flex-col gap-3 border-b border-slate-200 pb-4 sm:flex-row sm:items-start sm:justify-between">
                   <div>
                     {isCreatingLead ? (
@@ -1244,18 +1260,18 @@ export default function CRMApp() {
 
                 {!isCreatingLead && (draft.email || draft.phone) ? (
                   <div className="mt-4 flex flex-wrap items-center gap-2 rounded-xl border border-slate-200 bg-slate-50/80 p-2.5">
-                    <span className="mr-auto px-1.5 text-xs font-semibold text-slate-500">Quick contact</span>
+                    <span className="mr-auto w-full px-1.5 text-xs font-semibold text-slate-500 sm:w-auto">Quick contact</span>
                     {draft.email ? (
-                      <a className="rounded-lg border border-slate-200 bg-white px-3 py-2 text-xs font-bold text-slate-700 shadow-sm transition hover:border-cyan-200 hover:text-cyan-700" href={`mailto:${draft.email}`}>
+                      <a className="flex-1 rounded-lg border border-slate-200 bg-white px-3 py-2 text-center text-xs font-bold text-slate-700 shadow-sm transition hover:border-cyan-200 hover:text-cyan-700 sm:flex-none" href={`mailto:${draft.email}`}>
                         Email lead
                       </a>
                     ) : null}
                     {draft.phone ? (
-                      <a className="rounded-lg border border-slate-200 bg-white px-3 py-2 text-xs font-bold text-slate-700 shadow-sm transition hover:border-cyan-200 hover:text-cyan-700" href={`tel:${draft.phone.replace(/\s/g, '')}`}>
+                      <a className="flex-1 rounded-lg border border-slate-200 bg-white px-3 py-2 text-center text-xs font-bold text-slate-700 shadow-sm transition hover:border-cyan-200 hover:text-cyan-700 sm:flex-none" href={`tel:${draft.phone.replace(/\s/g, '')}`}>
                         Call lead
                       </a>
                     ) : null}
-                    <button className="rounded-lg border border-slate-200 bg-white px-3 py-2 text-xs font-bold text-slate-700 shadow-sm transition hover:border-cyan-200 hover:text-cyan-700" onClick={copyLeadContact} type="button">
+                    <button className="flex-1 rounded-lg border border-slate-200 bg-white px-3 py-2 text-xs font-bold text-slate-700 shadow-sm transition hover:border-cyan-200 hover:text-cyan-700 sm:flex-none" onClick={copyLeadContact} type="button">
                       {copiedLeadId === selectedLead?.id ? 'Copied!' : 'Copy details'}
                     </button>
                   </div>
@@ -1361,7 +1377,7 @@ export default function CRMApp() {
             )}
           </form>
 
-          <aside className="rounded-2xl border border-slate-200/90 bg-white p-5 shadow-card">
+          <aside className="rounded-xl border border-slate-200/90 bg-white p-4 shadow-card sm:rounded-2xl sm:p-5">
             <p className="text-[11px] font-bold uppercase tracking-[0.14em] text-cyan-700">Lead roadmap</p>
             <h3 className="mt-1 text-lg font-bold tracking-tight">Progress</h3>
             <ProgressRoadmap status={draft.status} onChange={changeStatus} />
