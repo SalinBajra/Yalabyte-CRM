@@ -30,6 +30,12 @@ export default function OverviewView({ leads, currentUser, teamMembers, onOpenLe
     if (!supabase) return;
     fetchAllLeadTasks().then(setTasks).catch(() => setTaskError('Run the operational CRM migration to enable the shared task queue.'));
     fetchSupportTickets().then(setSupportTickets).catch(() => {});
+    const channel = supabase.channel('dashboard-support-pulse')
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'support_tickets' }, () => {
+        fetchSupportTickets().then(setSupportTickets).catch(() => {});
+      })
+      .subscribe();
+    return () => { supabase.removeChannel(channel); };
   }, []);
 
   const data = useMemo(() => {

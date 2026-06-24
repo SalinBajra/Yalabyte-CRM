@@ -144,24 +144,28 @@ export default function SupportView({ currentUser, leads, teamMembers }) {
   const createTicket = async () => {
     const [targetType, targetId] = draft.targetId.split(":");
     const lead = targetType === "lead" ? leads.find((item) => item.id === targetId) : null;
-    const profile = targetType === "profile" ? profiles.find((item) => item.user_id === targetId) : profiles.find((item) => item.contact?.lead_id === targetId || (lead?.email && item.email?.toLowerCase() === lead.email.toLowerCase()));
+    let profile = targetType === "profile" ? profiles.find((item) => item.user_id === targetId) : profiles.find((item) => item.contact?.lead_id === targetId || (lead?.email && item.email?.toLowerCase() === lead.email.toLowerCase()));
     const assignee = teamMembers.find((item) => item.user_id === draft.assigneeId);
     if ((!profile && !lead) || !draft.subject.trim() || !draft.description.trim()) {
       setNotice("Choose a client or lead and complete the subject and description.");
       return;
     }
+    if (lead && !profile && !lead.email) {
+      setNotice("Add an email address to this lead before creating a portal support ticket.");
+      return;
+    }
     setBusy(true);
     try {
-      const ticket = await createSupportTicket({ ...draft, assignee }, profile, currentUser, lead);
       let invitationMessage = "";
       if (lead && !profile && lead.email) {
-        try {
-          const invitation = await inviteLeadToPortal(lead);
-          invitationMessage = ` ${invitation.message || `Portal invitation sent to ${lead.email}.`}`;
-        } catch (inviteError) {
-          invitationMessage = ` Ticket saved, but the portal invite failed: ${inviteError.message}`;
-        }
+        const invitation = await inviteLeadToPortal(lead);
+        invitationMessage = ` ${invitation.message || `Portal invitation sent to ${lead.email}.`}`;
+        const refreshedProfiles = await fetchClientProfiles();
+        setProfiles(refreshedProfiles);
+        profile = refreshedProfiles.find((item) => item.contact?.lead_id === lead.id || item.email?.toLowerCase() === lead.email.toLowerCase());
+        if (!profile) throw new Error("The portal invitation was sent, but the client profile is still syncing. Please try creating the ticket again in a moment.");
       }
+      const ticket = await createSupportTicket({ ...draft, assignee }, profile, currentUser, lead);
       setTickets((current) => [ticket, ...current]);
       setSelectedId(ticket.id);
       setDraft(emptyTicket);
