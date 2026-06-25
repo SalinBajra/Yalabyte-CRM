@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useState } from 'react';
-import { fetchAllLeadTasks, fetchSupportTickets, setLeadTaskStatus, setTeamMemberRole, supabase } from './supabase';
+import { fetchAllLeadTasks, fetchSupportTickets, setLeadTaskStatus, supabase } from './supabase';
 import TeamAvatar from './TeamAvatar';
 
 function money(value) {
@@ -30,11 +30,10 @@ function Metric({ label, value, note, tone = 'cyan' }) {
   return <div className="rounded-2xl border border-slate-200 bg-white p-4 shadow-card"><span className={`inline-flex rounded-lg px-2 py-1 text-[10px] font-extrabold uppercase tracking-[0.12em] ${tones[tone]}`}>{label}</span><p className="mt-3 text-2xl font-extrabold tracking-tight text-slate-950">{value}</p><p className="mt-1 text-xs text-slate-500">{note}</p></div>;
 }
 
-export default function OverviewView({ leads, currentUser, teamMembers, onOpenLead, onOpenSupport, onTeamChanged }) {
+export default function OverviewView({ leads, currentUser, teamMembers, onOpenLead, onOpenSupport }) {
   const [tasks, setTasks] = useState([]);
   const [supportTickets, setSupportTickets] = useState([]);
   const [taskError, setTaskError] = useState('');
-  const [roleError, setRoleError] = useState('');
 
   useEffect(() => {
     if (!supabase) return;
@@ -74,8 +73,6 @@ export default function OverviewView({ leads, currentUser, teamMembers, onOpenLe
   }, [leads, teamMembers]);
 
   const myTasks = tasks.filter((task) => task.assigned_to === currentUser.id && task.status !== 'done');
-  const currentProfile = teamMembers.find((member) => member.user_id === currentUser.id);
-  const canManageTeam = currentProfile?.role === 'admin';
   const maxSourceCount = Math.max(...data.sources.map(([, count]) => count), 1);
   const openSupport = supportTickets.filter((ticket) => !['resolved', 'closed'].includes(ticket.status));
   const urgentSupport = openSupport.filter((ticket) => ticket.priority === 'urgent');
@@ -86,16 +83,6 @@ export default function OverviewView({ leads, currentUser, teamMembers, onOpenLe
     const status = task.status === 'done' ? 'open' : 'done';
     await setLeadTaskStatus(task.id, status);
     setTasks((current) => current.map((item) => item.id === task.id ? { ...item, status } : item));
-  };
-
-  const changeRole = async (member, role) => {
-    setRoleError('');
-    try {
-      await setTeamMemberRole(member.user_id, role);
-      onTeamChanged?.();
-    } catch (error) {
-      setRoleError(error.message || 'Unable to change this role.');
-    }
   };
 
   return (
@@ -153,14 +140,6 @@ export default function OverviewView({ leads, currentUser, teamMembers, onOpenLe
         <section className="rounded-2xl border border-slate-200 bg-white p-5 shadow-card"><h2 className="text-lg font-extrabold">Lead sources</h2><p className="mt-1 text-xs text-slate-500">Where opportunities are coming from</p><div className="mt-5 space-y-3">{data.sources.slice(0, 7).map(([source, count]) => <div key={source}><div className="mb-1 flex justify-between text-xs"><span className="font-semibold text-slate-600">{source}</span><span className="font-bold text-slate-800">{count}</span></div><div className="h-2 overflow-hidden rounded-full bg-slate-100"><div className="h-full rounded-full bg-cyanbrand-500" style={{ width: `${Math.max((count / maxSourceCount) * 100, 6)}%` }} /></div></div>)}{!data.sources.length ? <p className="text-sm text-slate-400">No source data yet.</p> : null}</div></section>
         <section className="rounded-2xl border border-slate-200 bg-white p-5 shadow-card"><h2 className="text-lg font-extrabold">Team pipeline</h2><p className="mt-1 text-xs text-slate-500">Open ownership and value</p><div className="mt-4 divide-y divide-slate-100">{data.owners.map(([owner, summary]) => <div className="flex items-center justify-between gap-3 py-3" key={owner}><div className="flex min-w-0 items-center gap-2.5"><TeamAvatar name={owner} teamMembers={teamMembers} /><div><p className="truncate text-sm font-bold text-slate-800">{owner}</p><p className="text-xs text-slate-500">{summary.count} open</p></div></div><span className="text-sm font-extrabold text-slate-800">{money(summary.value)}</span></div>)}{!data.owners.length ? <p className="py-6 text-sm text-slate-400">No active ownership data.</p> : null}</div></section>
       </div>
-
-      {canManageTeam ? (
-        <section className="mt-5 rounded-2xl border border-slate-200 bg-white p-5 shadow-card">
-          <div><p className="text-[10px] font-extrabold uppercase tracking-[0.14em] text-slate-400">Admin</p><h2 className="mt-1 text-lg font-extrabold">Team access</h2><p className="mt-1 text-xs text-slate-500">Admins can manage CRM roles and Finance access.</p></div>
-          {roleError ? <p className="mt-3 rounded-lg bg-rose-50 px-3 py-2 text-xs text-rose-700">{roleError}</p> : null}
-          <div className="mt-4 grid gap-2 sm:grid-cols-2 lg:grid-cols-3">{teamMembers.map((member) => <div className="flex items-center justify-between gap-3 rounded-xl border border-slate-200 p-3" key={member.user_id}><TeamAvatar name={member.name} teamMembers={teamMembers} /><div className="min-w-0 flex-1"><p className="truncate text-sm font-bold text-slate-800">{member.name}</p><p className="truncate text-xs text-slate-400">{member.email}</p></div><select className="rounded-lg border border-slate-200 bg-white px-2 py-1.5 text-xs font-bold text-slate-600" value={member.role || 'member'} onChange={(event) => changeRole(member, event.target.value)}><option value="member">Member</option><option value="finance">Finance</option><option value="admin">Admin</option></select></div>)}</div>
-        </section>
-      ) : null}
     </div>
   );
 }

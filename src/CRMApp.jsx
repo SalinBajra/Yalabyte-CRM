@@ -17,6 +17,7 @@ import {
   notifyCliqNewLead,
   registerTeamMember,
   saveLeads,
+  setTeamMemberRole,
   supabase,
   toCRMUser,
   upsertFinanceDealFromLead
@@ -228,6 +229,10 @@ function ExportIcon() {
 
 function ImportIcon() {
   return <svg aria-hidden="true" className="h-[18px] w-[18px]" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth="1.8"><path strokeLinecap="round" strokeLinejoin="round" d="M12 4v12m0 0 4-4m-4 4-4-4M5 14v5h14v-5" /></svg>;
+}
+
+function GearIcon() {
+  return <svg aria-hidden="true" className="h-[18px] w-[18px]" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth="1.8"><path strokeLinecap="round" strokeLinejoin="round" d="M10.5 6.75 11.1 4.9a.95.95 0 0 1 1.8 0l.6 1.85c.2.06.39.14.58.24l1.72-.87a.95.95 0 0 1 1.27.38l.9 1.56a.95.95 0 0 1-.28 1.3l-1.6 1.05c.02.2.03.4.03.59s-.01.39-.03.59l1.6 1.05a.95.95 0 0 1 .28 1.3l-.9 1.56a.95.95 0 0 1-1.27.38l-1.72-.87c-.19.1-.38.18-.58.24l-.6 1.85a.95.95 0 0 1-1.8 0l-.6-1.85a5.1 5.1 0 0 1-.58-.24l-1.72.87a.95.95 0 0 1-1.27-.38l-.9-1.56a.95.95 0 0 1 .28-1.3l1.6-1.05A5.5 5.5 0 0 1 7.88 11c0-.19.01-.39.03-.59l-1.6-1.05a.95.95 0 0 1-.28-1.3l.9-1.56a.95.95 0 0 1 1.27-.38l1.72.87c.19-.1.38-.18.58-.24Z" /><path strokeLinecap="round" strokeLinejoin="round" d="M12 13.5a2.5 2.5 0 1 0 0-5 2.5 2.5 0 0 0 0 5Z" /></svg>;
 }
 
 function SignOutIcon() {
@@ -536,6 +541,8 @@ export default function CRMApp() {
   const [notifications, setNotifications] = useState([]);
   const [readNotificationIds, setReadNotificationIds] = useState([]);
   const [notificationsOpen, setNotificationsOpen] = useState(false);
+  const [accessOpen, setAccessOpen] = useState(false);
+  const [roleError, setRoleError] = useState('');
   const [deleting, setDeleting] = useState(false);
   const [converting, setConverting] = useState(false);
   const [financeHandoffBusy, setFinanceHandoffBusy] = useState(false);
@@ -1147,6 +1154,15 @@ export default function CRMApp() {
       }
     }
   };
+  const changeTeamRole = async (member, role) => {
+    setRoleError('');
+    try {
+      await setTeamMemberRole(member.user_id, role);
+      setTeamMembers((current) => current.map((item) => item.user_id === member.user_id ? { ...item, role } : item));
+    } catch (error) {
+      setRoleError(error.message || 'Unable to change this role.');
+    }
+  };
 
   return (
     <main className="crm-shell min-h-screen text-slate-950">
@@ -1182,7 +1198,10 @@ export default function CRMApp() {
             <div className="relative">
               <button
                 className={`relative flex h-10 w-10 items-center justify-center rounded-xl border transition ${notificationsOpen ? 'border-cyanbrand-500 bg-cyan-50 text-cyan-800' : 'border-slate-200 bg-white text-slate-600 hover:border-slate-300 hover:bg-slate-50'}`}
-                onClick={() => setNotificationsOpen((open) => !open)}
+                onClick={() => {
+                  setNotificationsOpen((open) => !open);
+                  setAccessOpen(false);
+                }}
                 type="button"
                 aria-label="Open notifications"
                 title="Notifications"
@@ -1223,6 +1242,47 @@ export default function CRMApp() {
                 </div>
               ) : null}
             </div>
+            {currentProfile?.role === 'admin' ? (
+              <div className="relative">
+                <button
+                  className={`flex h-10 w-10 items-center justify-center rounded-xl border transition ${accessOpen ? 'border-cyanbrand-500 bg-cyan-50 text-cyan-800' : 'border-slate-200 bg-white text-slate-600 hover:border-slate-300 hover:bg-slate-50'}`}
+                  onClick={() => {
+                    setAccessOpen((open) => !open);
+                    setNotificationsOpen(false);
+                  }}
+                  type="button"
+                  aria-label="Manage team access"
+                  title="Team access"
+                >
+                  <GearIcon />
+                </button>
+                {accessOpen ? (
+                  <div className="absolute right-0 top-12 z-40 w-[min(92vw,520px)] overflow-hidden rounded-xl border border-slate-200 bg-white shadow-soft">
+                    <div className="border-b border-slate-100 px-4 py-3">
+                      <p className="font-bold text-slate-950">Team access</p>
+                      <p className="mt-0.5 text-xs text-slate-500">Manage CRM roles and Finance access without crowding the dashboard.</p>
+                    </div>
+                    {roleError ? <p className="mx-4 mt-3 rounded-lg bg-rose-50 px-3 py-2 text-xs font-semibold text-rose-700">{roleError}</p> : null}
+                    <div className="max-h-96 overflow-y-auto p-3">
+                      {teamMembers.map((member) => (
+                        <div className="mb-2 flex items-center gap-3 rounded-xl border border-slate-200 p-3 last:mb-0" key={member.user_id}>
+                          <TeamAvatar name={member.name} teamMembers={teamMembers} />
+                          <div className="min-w-0 flex-1">
+                            <p className="truncate text-sm font-bold text-slate-800">{member.name}</p>
+                            <p className="truncate text-xs text-slate-400">{member.email}</p>
+                          </div>
+                          <select className="rounded-lg border border-slate-200 bg-white px-2 py-1.5 text-xs font-bold text-slate-600 outline-none focus:border-cyanbrand-500" value={member.role || 'member'} onChange={(event) => changeTeamRole(member, event.target.value)}>
+                            <option value="member">Member</option>
+                            <option value="finance">Finance</option>
+                            <option value="admin">Admin</option>
+                          </select>
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+                ) : null}
+              </div>
+            ) : null}
             <button className="hidden h-10 w-10 items-center justify-center rounded-xl border border-slate-200 bg-white text-slate-600 transition hover:border-slate-300 hover:bg-slate-50 sm:flex" onClick={exportLeads} aria-label="Export leads" title="Export leads">
               <ExportIcon />
             </button>
@@ -1268,7 +1328,6 @@ export default function CRMApp() {
           leads={leads}
           onOpenLead={openLeadWorkspace}
           onOpenSupport={() => setActiveWorkspace('support')}
-          onTeamChanged={() => fetchTeamMembers().then(setTeamMembers).catch(() => {})}
           teamMembers={teamMembers}
         />
       ) : activeWorkspace === 'pipeline' ? (
@@ -1466,11 +1525,10 @@ export default function CRMApp() {
                       </>
 	                    ) : <>
 	                      {draft.status === 'won' ? (
-	                        financeAppUrl ? (
-	                          <a className="rounded-lg bg-violet-600 px-4 py-2.5 text-sm font-bold text-white shadow-sm hover:bg-violet-700" href={financeAppUrl} rel="noreferrer" target="_blank">Open Finance</a>
-	                        ) : (
-	                          <button className="rounded-lg bg-violet-600 px-4 py-2.5 text-sm font-bold text-white shadow-sm hover:bg-violet-700 disabled:cursor-wait disabled:opacity-60" disabled={financeHandoffBusy} onClick={() => sendLeadToFinance(currentDraftLead())} type="button">{financeHandoffBusy ? 'Sending…' : 'Send to Finance'}</button>
-	                        )
+	                        <div className="flex flex-wrap items-center gap-2">
+	                          <button className="rounded-lg bg-violet-600 px-4 py-2.5 text-sm font-bold text-white shadow-sm hover:bg-violet-700 disabled:cursor-wait disabled:opacity-60" disabled={financeHandoffBusy || hasUnsavedLeadChanges} onClick={() => sendLeadToFinance(currentDraftLead())} title={hasUnsavedLeadChanges ? 'Save changes before sending to Finance' : 'Send this won lead to Finance'} type="button">{financeHandoffBusy ? 'Sending…' : selectedLead?.financeHandoffAt ? 'Refresh Finance' : 'Send to Finance'}</button>
+	                          {financeAppUrl ? <a className="rounded-lg border border-violet-200 bg-violet-50 px-4 py-2.5 text-sm font-bold text-violet-700 hover:bg-violet-100" href={financeAppUrl} rel="noreferrer" target="_blank">Open Finance</a> : null}
+	                        </div>
 	                      ) : null}
                       {draft.convertedContactId ? <span className="inline-flex items-center gap-1.5 rounded-lg border border-emerald-200 bg-emerald-50 px-3 py-2.5 text-xs font-bold text-emerald-700"><span aria-hidden="true">✓</span> Contact linked</span> : (
                         <button className="rounded-lg border border-cyan-200 bg-cyan-50 px-4 py-2.5 text-sm font-bold text-cyan-800 hover:bg-cyan-100 disabled:opacity-60" disabled={converting} onClick={handleConvertLead} type="button">{converting ? 'Converting…' : 'Convert to contact'}</button>
@@ -1636,7 +1694,7 @@ export default function CRMApp() {
                   <button className="mt-2 w-full rounded-md bg-cyanbrand-500 px-3 py-2 text-sm font-bold text-slate-950 hover:bg-cyanbrand-400" onClick={addActivity} type="button">
                     Add {activityType}
                   </button>
-                  <div className="mt-4 space-y-3">
+                  <div className="mt-4 max-h-72 space-y-3 overflow-y-auto pr-1">
                     {(selectedLead?.activities || []).map((activity) => (
                       <div key={activity.id} className="rounded-md border border-slate-200 bg-slate-50 p-3">
                         <p className="text-sm font-semibold text-slate-950">{activity.text}</p>
@@ -1650,13 +1708,15 @@ export default function CRMApp() {
             </div>
             {!isCreatingLead && selectedLead ? <LeadTasks currentUser={currentUser} lead={selectedLead} onActivity={(text, type) => updateLead(selectedLead.id, {}, text, type)} teamMembers={teamMembers} /> : null}
 	            {!isCreatingLead && selectedLead?.status === 'won' ? (
-	              <div className="mt-6 border-t border-slate-200 pt-5">
-	                <div className="rounded-xl border border-violet-100 bg-violet-50 p-4">
-	                  <h3 className="text-base font-semibold text-violet-950">Finance handoff</h3>
-	                  <p className="mt-1 text-xs leading-5 text-violet-700">{selectedLead.financeHandoffAt ? `Ready for invoicing in Finance since ${formatDate(selectedLead.financeHandoffAt)}.` : 'This won deal is ready to send to Finance for invoicing.'}</p>
-	                  <div className="mt-3 flex flex-wrap gap-2">
-	                    <button className="rounded-lg bg-violet-600 px-3 py-2 text-xs font-bold text-white hover:bg-violet-700 disabled:cursor-wait disabled:opacity-60" disabled={financeHandoffBusy} onClick={() => sendLeadToFinance(currentDraftLead())} type="button">{financeHandoffBusy ? 'Sending…' : selectedLead.financeHandoffAt ? 'Refresh Finance' : 'Send to Finance'}</button>
-	                    {financeAppUrl ? <a className="rounded-lg bg-white px-3 py-2 text-xs font-bold text-violet-700 ring-1 ring-violet-100 hover:bg-violet-100" href={financeAppUrl} rel="noreferrer" target="_blank">Open Finance</a> : null}
+	              <div className="mt-4 rounded-xl border border-violet-100 bg-violet-50 p-3">
+	                <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
+	                  <div>
+	                    <h3 className="text-sm font-extrabold text-violet-950">Finance handoff</h3>
+	                    <p className="mt-0.5 text-xs leading-5 text-violet-700">{selectedLead.financeHandoffAt ? `Synced ${formatDate(selectedLead.financeHandoffAt)}.` : 'Ready to send for invoicing.'}</p>
+	                  </div>
+	                  <div className="flex flex-wrap gap-2">
+	                    <button className="rounded-lg bg-violet-600 px-3 py-2 text-xs font-bold text-white hover:bg-violet-700 disabled:cursor-wait disabled:opacity-60" disabled={financeHandoffBusy || hasUnsavedLeadChanges} onClick={() => sendLeadToFinance(currentDraftLead())} type="button">{financeHandoffBusy ? 'Sending…' : selectedLead.financeHandoffAt ? 'Refresh' : 'Send'}</button>
+	                    {financeAppUrl ? <a className="rounded-lg bg-white px-3 py-2 text-xs font-bold text-violet-700 ring-1 ring-violet-100 hover:bg-violet-100" href={financeAppUrl} rel="noreferrer" target="_blank">Open</a> : null}
 	                  </div>
 	                </div>
 	              </div>
