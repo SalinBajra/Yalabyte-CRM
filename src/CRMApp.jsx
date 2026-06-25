@@ -620,8 +620,13 @@ export default function CRMApp() {
       if (membersResult.status === 'fulfilled') setTeamMembers(membersResult.value);
       if (notificationsResult.status === 'fulfilled') setNotifications(uniqueNotifications(notificationsResult.value));
       if (readNotificationsResult.status === 'fulfilled') setReadNotificationIds((current) => Array.from(new Set([...current, ...readNotificationsResult.value])));
-      if (membersResult.status === 'rejected' || notificationsResult.status === 'rejected') {
-        setDataError('Team ownership and audit features require the latest Supabase migration.');
+      if (membersResult.status === 'rejected' || notificationsResult.status === 'rejected' || readNotificationsResult.status === 'rejected') {
+        const failedParts = [
+          membersResult.status === 'rejected' ? `team members: ${membersResult.reason?.message || 'unavailable'}` : '',
+          notificationsResult.status === 'rejected' ? `deletion audit: ${notificationsResult.reason?.message || 'unavailable'}` : '',
+          readNotificationsResult.status === 'rejected' ? `notification reads: ${readNotificationsResult.reason?.message || 'unavailable'}` : ''
+        ].filter(Boolean);
+        setDataError(`CRM access setup needs attention (${failedParts.join('; ')}).`);
       }
     });
 
