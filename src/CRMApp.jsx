@@ -65,60 +65,7 @@ const initialLead = {
   notes: ''
 };
 
-const sampleLeads = [
-  {
-    id: 'lead-sample-1',
-    name: 'Aarav Sharma',
-    email: 'aarav@example.com',
-    phone: '+977 9800000000',
-    company: 'Himalayan Travel Co.',
-    service: 'Business Website Design',
-    status: 'new',
-    priority: 'High',
-    owner: 'Paul',
-    value: '150000',
-    followUpDate: new Date(Date.now() + 86400000).toISOString().slice(0, 10),
-    source: 'Website form',
-    message: 'Needs a polished travel website with inquiry forms and package pages.',
-    notes: 'Ask about package categories, payment flow, and launch timeline.',
-    createdAt: new Date().toISOString(),
-    updatedAt: new Date().toISOString(),
-    activities: [
-      {
-        id: 'activity-sample-1',
-        type: 'Created',
-        text: 'Lead created from website form.',
-        at: new Date().toISOString()
-      }
-    ]
-  },
-  {
-    id: 'lead-sample-2',
-    name: 'Maya Rai',
-    email: 'maya@example.com',
-    phone: '',
-    company: 'Studio North',
-    service: 'Custom Web Applications',
-    status: 'proposal',
-    priority: 'Medium',
-    owner: 'YalaByte',
-    value: '420000',
-    followUpDate: new Date(Date.now() + 3 * 86400000).toISOString().slice(0, 10),
-    source: 'Referral',
-    message: 'Looking for a client portal and internal project dashboard.',
-    notes: 'Proposal sent. Waiting on scope approval.',
-    createdAt: new Date(Date.now() - 4 * 86400000).toISOString(),
-    updatedAt: new Date(Date.now() - 86400000).toISOString(),
-    activities: [
-      {
-        id: 'activity-sample-2',
-        type: 'Proposal',
-        text: 'Proposal shared for review.',
-        at: new Date(Date.now() - 86400000).toISOString()
-      }
-    ]
-  }
-];
+const sampleLeads = [];
 
 function createId(prefix) {
   if (window.crypto?.randomUUID) {
@@ -164,6 +111,10 @@ function normalizedPhone(value) {
 
 function samePersonName(left, right) {
   return Boolean(left && right && left.trim().localeCompare(right.trim(), undefined, { sensitivity: 'base' }) === 0);
+}
+
+function isTeamOwner(owner, teamMembers) {
+  return Boolean(owner && teamMembers.some((member) => samePersonName(member.name, owner)));
 }
 
 function uniqueNotifications(items) {
@@ -703,6 +654,20 @@ export default function CRMApp() {
   }, [leads, dataReady, currentUser?.id]);
 
   useEffect(() => {
+    if (!dataReady || !teamMembers.length) return;
+    const now = new Date().toISOString();
+    setLeads((current) => {
+      let changed = false;
+      const next = current.map((lead) => {
+        if (!lead.owner || isTeamOwner(lead.owner, teamMembers)) return lead;
+        changed = true;
+        return { ...lead, owner: '', updatedAt: now };
+      });
+      return changed ? next : current;
+    });
+  }, [dataReady, teamMembers]);
+
+  useEffect(() => {
     if (!dataReady || !currentUser || !supabase) return undefined;
 
     const channel = supabase
@@ -740,12 +705,16 @@ export default function CRMApp() {
   useEffect(() => {
     if (isCreatingLead) return;
     if (selectedLead) {
-      setDraft({ ...initialLead, ...selectedLead });
+      setDraft({
+        ...initialLead,
+        ...selectedLead,
+        owner: selectedLead.owner && isTeamOwner(selectedLead.owner, teamMembers) ? selectedLead.owner : ''
+      });
       setNote('');
     } else {
       setDraft(initialLead);
     }
-  }, [selectedLead?.id, selectedLead?.updatedAt, isCreatingLead]);
+  }, [selectedLead?.id, selectedLead?.updatedAt, isCreatingLead, teamMembers]);
 
   const filteredLeads = useMemo(() => {
     const normalizedQuery = query.trim().toLowerCase();
@@ -1117,8 +1086,8 @@ export default function CRMApp() {
   }
 
   const activeTone = stages.find((stage) => stage.id === draft.status)?.tone || stages[0].tone;
-  const ownerOptions = Array.from(new Set([...teamMembers.map((member) => member.name), draft.owner].filter(Boolean)));
-  const leadOwnerOptions = Array.from(new Set(leads.map((lead) => lead.owner).filter(Boolean))).sort();
+  const ownerOptions = Array.from(new Set(teamMembers.map((member) => member.name).filter(Boolean)));
+  const leadOwnerOptions = Array.from(new Set(leads.map((lead) => lead.owner).filter((owner) => isTeamOwner(owner, teamMembers)))).sort();
   const stageCounts = Object.fromEntries(stages.map((stage) => [stage.id, leads.filter((lead) => lead.status === stage.id).length]));
   const activeFilterCount = Number(Boolean(query.trim())) + Number(stageFilter !== 'all') + Number(ownerFilter !== 'all') + Number(followUpFilter !== 'all');
   const currentProfile = teamMembers.find((member) => member.user_id === currentUser.id);
