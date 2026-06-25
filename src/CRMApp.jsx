@@ -944,13 +944,17 @@ export default function CRMApp() {
     setNote('');
   };
 
-  const changeStatus = (status) => {
+  const currentDraftLead = () => selectedLead ? { ...selectedLead, ...draft, status: draft.status || selectedLead.status } : null;
+
+  const changeStatus = async (status) => {
     if (isCreatingLead) {
       setDraft((current) => ({ ...current, status }));
       return;
     }
     if (!selectedLead) return;
     setDraft((current) => ({ ...current, status }));
+    updateLead(selectedLead.id, { ...draft, status }, `Moved to ${stages.find((stage) => stage.id === status)?.label || status}.`, 'Stage');
+    if (status === 'won') await sendLeadToFinance({ ...selectedLead, ...draft, status });
   };
 
   const moveLeadToStage = async (leadId, status) => {
@@ -1465,7 +1469,7 @@ export default function CRMApp() {
 	                        financeAppUrl ? (
 	                          <a className="rounded-lg bg-violet-600 px-4 py-2.5 text-sm font-bold text-white shadow-sm hover:bg-violet-700" href={financeAppUrl} rel="noreferrer" target="_blank">Open Finance</a>
 	                        ) : (
-	                          <button className="rounded-lg bg-violet-600 px-4 py-2.5 text-sm font-bold text-white shadow-sm hover:bg-violet-700 disabled:cursor-wait disabled:opacity-60" disabled={financeHandoffBusy} onClick={() => sendLeadToFinance(selectedLead)} type="button">{financeHandoffBusy ? 'Sending…' : 'Send to Finance'}</button>
+	                          <button className="rounded-lg bg-violet-600 px-4 py-2.5 text-sm font-bold text-white shadow-sm hover:bg-violet-700 disabled:cursor-wait disabled:opacity-60" disabled={financeHandoffBusy} onClick={() => sendLeadToFinance(currentDraftLead())} type="button">{financeHandoffBusy ? 'Sending…' : 'Send to Finance'}</button>
 	                        )
 	                      ) : null}
                       {draft.convertedContactId ? <span className="inline-flex items-center gap-1.5 rounded-lg border border-emerald-200 bg-emerald-50 px-3 py-2.5 text-xs font-bold text-emerald-700"><span aria-hidden="true">✓</span> Contact linked</span> : (
@@ -1651,7 +1655,7 @@ export default function CRMApp() {
 	                  <h3 className="text-base font-semibold text-violet-950">Finance handoff</h3>
 	                  <p className="mt-1 text-xs leading-5 text-violet-700">{selectedLead.financeHandoffAt ? `Ready for invoicing in Finance since ${formatDate(selectedLead.financeHandoffAt)}.` : 'This won deal is ready to send to Finance for invoicing.'}</p>
 	                  <div className="mt-3 flex flex-wrap gap-2">
-	                    <button className="rounded-lg bg-violet-600 px-3 py-2 text-xs font-bold text-white hover:bg-violet-700 disabled:cursor-wait disabled:opacity-60" disabled={financeHandoffBusy} onClick={() => sendLeadToFinance(selectedLead)} type="button">{financeHandoffBusy ? 'Sending…' : selectedLead.financeHandoffAt ? 'Refresh Finance' : 'Send to Finance'}</button>
+	                    <button className="rounded-lg bg-violet-600 px-3 py-2 text-xs font-bold text-white hover:bg-violet-700 disabled:cursor-wait disabled:opacity-60" disabled={financeHandoffBusy} onClick={() => sendLeadToFinance(currentDraftLead())} type="button">{financeHandoffBusy ? 'Sending…' : selectedLead.financeHandoffAt ? 'Refresh Finance' : 'Send to Finance'}</button>
 	                    {financeAppUrl ? <a className="rounded-lg bg-white px-3 py-2 text-xs font-bold text-violet-700 ring-1 ring-violet-100 hover:bg-violet-100" href={financeAppUrl} rel="noreferrer" target="_blank">Open Finance</a> : null}
 	                  </div>
 	                </div>
