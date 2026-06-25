@@ -1,6 +1,5 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
 import ContactsView from './ContactsView';
-import InvoiceModal from './InvoiceModal';
 import LeadTasks from './LeadTasks';
 import OverviewView from './OverviewView';
 import PipelineBoard from './PipelineBoard';
@@ -19,7 +18,8 @@ import {
   registerTeamMember,
   saveLeads,
   supabase,
-  toCRMUser
+  toCRMUser,
+  upsertFinanceDealFromLead
 } from './supabase';
 
 const STORAGE_KEY = 'yalabyte-crm-leads';
@@ -28,6 +28,7 @@ const ACCOUNTS_KEY = 'yalabyte-crm-accounts';
 const READ_NOTIFICATIONS_KEY = 'yalabyte-crm-read-notifications';
 const WELCOME_SESSION_KEY = 'yalabyte-crm-welcome-shown';
 const ALLOWED_EMAIL_DOMAIN = 'yalabyte.com';
+const financeAppUrl = import.meta.env.VITE_FINANCE_APP_URL || '';
 
 const stages = [
   { id: 'new', label: 'New', tone: 'bg-sky-50 text-sky-800 border-sky-100' },
@@ -115,6 +116,11 @@ function samePersonName(left, right) {
 
 function isTeamOwner(owner, teamMembers) {
   return Boolean(owner && teamMembers.some((member) => samePersonName(member.name, owner)));
+}
+
+function trustedOwnerName(owner, teamMembers) {
+  if (!owner) return '';
+  return teamMembers.find((member) => samePersonName(member.name, owner))?.name || '';
 }
 
 function uniqueNotifications(items) {
@@ -532,7 +538,7 @@ export default function CRMApp() {
   const [notificationsOpen, setNotificationsOpen] = useState(false);
   const [deleting, setDeleting] = useState(false);
   const [converting, setConverting] = useState(false);
-  const [invoiceModal, setInvoiceModal] = useState(null);
+  const [financeHandoffBusy, setFinanceHandoffBusy] = useState(false);
   const [isCreatingLead, setIsCreatingLead] = useState(false);
   const [activeWorkspace, setActiveWorkspace] = useState('overview');
   const [profileOpen, setProfileOpen] = useState(false);
@@ -720,10 +726,11 @@ export default function CRMApp() {
     const normalizedQuery = query.trim().toLowerCase();
     const matchingLeads = leads.filter((lead) => {
       const matchesStage = stageFilter === 'all' || lead.status === stageFilter;
+      const trustedOwner = trustedOwnerName(lead.owner, teamMembers);
       const matchesOwner = ownerFilter === 'all'
-        || (ownerFilter === 'mine' && samePersonName(lead.owner, currentUser?.name))
-        || (ownerFilter === 'unassigned' && !lead.owner)
-        || (ownerFilter.startsWith('owner:') && samePersonName(lead.owner, ownerFilter.slice(6)));
+        || (ownerFilter === 'mine' && samePersonName(trustedOwner, currentUser?.name))
+        || (ownerFilter === 'unassigned' && !trustedOwner)
+        || (ownerFilter.startsWith('owner:') && samePersonName(trustedOwner, ownerFilter.slice(6)));
       const due = daysUntil(lead.followUpDate);
       const isClosed = ['won', 'lost'].includes(lead.status);
       const matchesFollowUp = followUpFilter === 'all'
@@ -733,7 +740,7 @@ export default function CRMApp() {
         || (followUpFilter === 'none' && due === null && !isClosed);
       const matchesQuery =
         !normalizedQuery ||
-        [lead.name, lead.email, lead.phone, lead.company, lead.service, lead.owner, lead.source]
+        [lead.name, lead.email, lead.phone, lead.company, lead.service, trustedOwner, lead.source]
           .filter(Boolean)
           .some((value) => value.toLowerCase().includes(normalizedQuery));
       return matchesStage && matchesOwner && matchesFollowUp && matchesQuery;
@@ -748,7 +755,7 @@ export default function CRMApp() {
       if (sortBy === 'name') return (left.name || '').localeCompare(right.name || '');
       return new Date(right.updatedAt || right.createdAt || 0) - new Date(left.updatedAt || left.createdAt || 0);
     });
-  }, [leads, query, stageFilter, ownerFilter, followUpFilter, sortBy, currentUser?.name]);
+  }, [leads, query, stageFilter, ownerFilter, followUpFilter, sortBy, currentUser?.name, teamMembers]);
 
   const duplicateLead = useMemo(() => {
     const email = normalizedEmail(draft.email);
@@ -845,7 +852,7 @@ export default function CRMApp() {
         ...draft,
         id: draft.id || createId('lead'),
         name: draft.name.trim() || 'New lead',
-        owner: draft.owner || currentUser?.name || '',
+        owner: trustedOwnerName(draft.owner, teamMembers),
         createdAt: now,
         updatedAt: now,
         activities: [{ id: createId('activity'), type: 'Created', text: 'Lead created manually.', at: now, by: currentUser.name, byEmail: currentUser.email }]
@@ -865,6 +872,18 @@ export default function CRMApp() {
           } catch (error) {
             contactError = error.message || 'Contact creation failed.';
           }
+        }
+        if (savedLead.status === 'won' && supabase) {
+          await upsertFinanceDealFromLead(savedLead, currentUser);
+          savedLead = {
+            ...savedLead,
+            financeHandoffAt: new Date().toISOString(),
+            financeStatus: 'ready_to_invoice',
+            activities: [
+              { id: createId('activity'), type: 'Finance', text: 'Won deal sent to Finance for invoicing.', at: new Date().toISOString(), by: currentUser.name, byEmail: currentUser.email },
+              ...(savedLead.activities || [])
+            ]
+          };
         }
         setLeads((current) => [savedLead, ...current.filter((item) => item.id !== savedLead.id)]);
         setSelectedId(savedLead.id);
@@ -886,15 +905,17 @@ export default function CRMApp() {
       return;
     }
     if (!selectedLead) return;
+    const nextLead = { ...selectedLead, ...draft };
     updateLead(selectedLead.id, draft, 'Lead details updated.');
-    setActionNotice('Lead changes saved.');
+    if (nextLead.status === 'won') await sendLeadToFinance(nextLead);
+    else setActionNotice('Lead changes saved.');
   };
 
   const createLead = () => {
     setDraft({
       ...initialLead,
       id: createId('lead'),
-      owner: currentUser?.name || '',
+      owner: trustedOwnerName(currentUser?.name, teamMembers),
       createdAt: '',
       updatedAt: '',
       activities: []
@@ -927,12 +948,13 @@ export default function CRMApp() {
     setDraft((current) => ({ ...current, status }));
   };
 
-  const moveLeadToStage = (leadId, status) => {
+  const moveLeadToStage = async (leadId, status) => {
     if (!status) return;
     const lead = leads.find((item) => item.id === leadId);
     if (!lead || lead.status === status) return;
     const label = stages.find((stage) => stage.id === status)?.label || status;
     updateLead(leadId, { status }, `Moved to ${label} from the pipeline.`, 'Stage');
+    if (status === 'won') await sendLeadToFinance({ ...lead, status });
   };
 
   const openLeadWorkspace = (leadId) => {
@@ -965,20 +987,26 @@ export default function CRMApp() {
     }
   };
 
-  const saveInvoice = (invoice, updating) => {
-    if (!selectedLead) return;
-    const currentInvoices = selectedLead.invoices || [];
-    const invoiceExists = updating || currentInvoices.some((item) => item.id === invoice.id);
-    const invoices = invoiceExists
-      ? currentInvoices.map((item) => item.id === invoice.id ? invoice : item)
-      : [invoice, ...currentInvoices];
-    updateLead(
-      selectedLead.id,
-      { invoices },
-      `${invoiceExists ? 'Updated' : 'Generated'} invoice ${invoice.invoiceNumber} for ${money(invoice.amountDue)}.`,
-      'Invoice'
-    );
-    setActionNotice(`Invoice ${invoice.invoiceNumber} saved and downloaded.`);
+  const sendLeadToFinance = async (lead) => {
+    if (!lead || lead.status !== 'won') return;
+    if (!supabase) {
+      setDataError('Finance handoff requires the shared Supabase workspace.');
+      return;
+    }
+    setFinanceHandoffBusy(true);
+    setDataError('');
+    try {
+      await upsertFinanceDealFromLead(lead, currentUser);
+      updateLead(lead.id, {
+        financeHandoffAt: new Date().toISOString(),
+        financeStatus: 'ready_to_invoice'
+      }, 'Won deal sent to Finance for invoicing.', 'Finance');
+      setActionNotice('Won deal sent to Finance for invoicing.');
+    } catch (error) {
+      setDataError(error.message || 'Unable to send this won deal to Finance.');
+    } finally {
+      setFinanceHandoffBusy(false);
+    }
   };
 
   const handleDeleteLead = async () => {
@@ -1379,8 +1407,8 @@ export default function CRMApp() {
                   </div>
                   <div className="mt-2 flex items-center justify-between text-xs text-slate-500">
                     <span className="flex min-w-0 items-center gap-1.5 truncate font-medium text-slate-600">
-                      <TeamAvatar name={lead.owner} teamMembers={teamMembers} size="sm" />
-                      <span className="truncate">{lead.owner || 'Unassigned'}</span>
+                      <TeamAvatar name={trustedOwnerName(lead.owner, teamMembers)} teamMembers={teamMembers} size="sm" />
+                      <span className="truncate">{trustedOwnerName(lead.owner, teamMembers) || 'Unassigned'}</span>
                     </span>
                     {due < 0 ? <span className="rounded-md bg-rose-50 px-2 py-1 font-bold text-rose-700">Overdue {Math.abs(due)}d</span>
                       : due === 0 ? <span className="rounded-md bg-amber-50 px-2 py-1 font-bold text-amber-700">Due today</span>
@@ -1427,10 +1455,14 @@ export default function CRMApp() {
                         <button className="rounded-lg border border-slate-200 bg-white px-4 py-2.5 text-sm font-bold text-slate-600 hover:bg-slate-50" onClick={cancelCreateLead} type="button">Cancel</button>
                         <button className="rounded-lg bg-slate-950 px-4 py-2.5 text-sm font-bold text-white shadow-sm hover:bg-slate-800 disabled:cursor-not-allowed disabled:opacity-40" disabled={Boolean(duplicateLead)} type="submit">{duplicateLead ? 'Duplicate found' : 'Create lead'}</button>
                       </>
-                    ) : <>
-                      {draft.status === 'won' ? (
-                        <button className="rounded-lg bg-violet-600 px-4 py-2.5 text-sm font-bold text-white shadow-sm hover:bg-violet-700" onClick={() => setInvoiceModal({ invoice: null })} type="button">Create invoice</button>
-                      ) : null}
+	                    ) : <>
+	                      {draft.status === 'won' ? (
+	                        financeAppUrl ? (
+	                          <a className="rounded-lg bg-violet-600 px-4 py-2.5 text-sm font-bold text-white shadow-sm hover:bg-violet-700" href={financeAppUrl} rel="noreferrer" target="_blank">Open Finance</a>
+	                        ) : (
+	                          <button className="rounded-lg bg-violet-600 px-4 py-2.5 text-sm font-bold text-white shadow-sm hover:bg-violet-700 disabled:cursor-wait disabled:opacity-60" disabled={financeHandoffBusy} onClick={() => sendLeadToFinance(selectedLead)} type="button">{financeHandoffBusy ? 'Sending…' : 'Send to Finance'}</button>
+	                        )
+	                      ) : null}
                       {draft.convertedContactId ? <span className="inline-flex items-center gap-1.5 rounded-lg border border-emerald-200 bg-emerald-50 px-3 py-2.5 text-xs font-bold text-emerald-700"><span aria-hidden="true">✓</span> Contact linked</span> : (
                         <button className="rounded-lg border border-cyan-200 bg-cyan-50 px-4 py-2.5 text-sm font-bold text-cyan-800 hover:bg-cyan-100 disabled:opacity-60" disabled={converting} onClick={handleConvertLead} type="button">{converting ? 'Converting…' : 'Convert to contact'}</button>
                       )}
@@ -1608,20 +1640,18 @@ export default function CRMApp() {
               )}
             </div>
             {!isCreatingLead && selectedLead ? <LeadTasks currentUser={currentUser} lead={selectedLead} onActivity={(text, type) => updateLead(selectedLead.id, {}, text, type)} teamMembers={teamMembers} /> : null}
-            {!isCreatingLead && selectedLead?.invoices?.length ? (
-              <div className="mt-6 border-t border-slate-200 pt-5">
-                <div className="flex items-center justify-between gap-3"><div><h3 className="text-base font-semibold">Invoices</h3><p className="mt-0.5 text-xs text-slate-400">Saved PDF billing history</p></div>{selectedLead.status === 'won' ? <button className="rounded-lg bg-violet-50 px-3 py-2 text-xs font-bold text-violet-700 hover:bg-violet-100" onClick={() => setInvoiceModal({ invoice: null })} type="button">New</button> : null}</div>
-                <div className="mt-3 space-y-2">
-                  {selectedLead.invoices.map((invoice) => (
-                    <button className="block w-full rounded-xl border border-slate-200 bg-white p-3 text-left transition hover:border-violet-200 hover:bg-violet-50/40" key={invoice.id} onClick={() => setInvoiceModal({ invoice })} type="button">
-                      <div className="flex items-center justify-between gap-2"><p className="text-sm font-bold text-slate-800">{invoice.invoiceNumber}</p><span className={`rounded-md px-2 py-1 text-[9px] font-extrabold uppercase ${invoice.status === 'paid' ? 'bg-emerald-50 text-emerald-700' : invoice.status === 'cancelled' ? 'bg-rose-50 text-rose-600' : 'bg-violet-50 text-violet-700'}`}>{invoice.status}</span></div>
-                      <div className="mt-1.5 flex items-center justify-between text-xs text-slate-500"><span>{invoice.paymentLabel}</span><strong className="text-slate-700">{money(invoice.amountDue)}</strong></div>
-                      <p className="mt-1 text-[11px] text-slate-400">Issued {formatDate(invoice.issueDate)} · Due {formatDate(invoice.dueDate)}</p>
-                    </button>
-                  ))}
-                </div>
-              </div>
-            ) : null}
+	            {!isCreatingLead && selectedLead?.status === 'won' ? (
+	              <div className="mt-6 border-t border-slate-200 pt-5">
+	                <div className="rounded-xl border border-violet-100 bg-violet-50 p-4">
+	                  <h3 className="text-base font-semibold text-violet-950">Finance handoff</h3>
+	                  <p className="mt-1 text-xs leading-5 text-violet-700">{selectedLead.financeHandoffAt ? `Ready for invoicing in Finance since ${formatDate(selectedLead.financeHandoffAt)}.` : 'This won deal is ready to send to Finance for invoicing.'}</p>
+	                  <div className="mt-3 flex flex-wrap gap-2">
+	                    <button className="rounded-lg bg-violet-600 px-3 py-2 text-xs font-bold text-white hover:bg-violet-700 disabled:cursor-wait disabled:opacity-60" disabled={financeHandoffBusy} onClick={() => sendLeadToFinance(selectedLead)} type="button">{financeHandoffBusy ? 'Sending…' : selectedLead.financeHandoffAt ? 'Refresh Finance' : 'Send to Finance'}</button>
+	                    {financeAppUrl ? <a className="rounded-lg bg-white px-3 py-2 text-xs font-bold text-violet-700 ring-1 ring-violet-100 hover:bg-violet-100" href={financeAppUrl} rel="noreferrer" target="_blank">Open Finance</a> : null}
+	                  </div>
+	                </div>
+	              </div>
+	            ) : null}
           </aside>
         </section>
       </div>
@@ -1641,15 +1671,6 @@ export default function CRMApp() {
           }}
         />
       ) : null}
-      {invoiceModal && selectedLead ? (
-        <InvoiceModal
-          currentUser={currentUser}
-          invoice={invoiceModal.invoice}
-          lead={selectedLead}
-          onClose={() => setInvoiceModal(null)}
-          onSaved={saveInvoice}
-        />
-      ) : null}
-    </main>
+	    </main>
   );
 }

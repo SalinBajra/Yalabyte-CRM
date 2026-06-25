@@ -293,6 +293,30 @@ export async function setTeamMemberRole(userId, role) {
   if (error) throw error;
 }
 
+export async function upsertFinanceDealFromLead(lead, user) {
+  const now = new Date().toISOString();
+  const record = {
+    crm_lead_id: lead.id,
+    client_name: lead.name || 'Unnamed client',
+    company: lead.company || '',
+    email: lead.email || '',
+    phone: lead.phone || '',
+    service: lead.service || '',
+    deal_value_npr: Number(lead.value || 0),
+    owner_name: lead.owner || user?.name || '',
+    owner_email: user?.email || '',
+    lead_data: lead,
+    status: 'ready_to_invoice',
+    won_at: lead.wonAt || lead.financeHandoffAt || now,
+    created_by: user?.id || null,
+    updated_at: now
+  };
+  const { error } = await supabase
+    .from('finance_deals')
+    .upsert(record, { onConflict: 'crm_lead_id' });
+  if (error) throw error;
+}
+
 export async function fetchClientProfiles() {
   const { data, error } = await supabase
     .from('client_profiles')

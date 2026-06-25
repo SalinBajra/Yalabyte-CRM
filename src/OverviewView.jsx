@@ -15,6 +15,16 @@ function daysFromToday(value) {
   return Math.round((date - today) / 86400000);
 }
 
+function normalizeName(value) {
+  return String(value || '').trim().toLowerCase();
+}
+
+function trustedOwnerName(owner, teamMembers) {
+  const normalized = normalizeName(owner);
+  if (!normalized) return 'Unassigned';
+  return teamMembers.find((member) => normalizeName(member.name) === normalized)?.name || 'Unassigned';
+}
+
 function Metric({ label, value, note, tone = 'cyan' }) {
   const tones = { cyan: 'bg-cyan-50 text-cyan-700', emerald: 'bg-emerald-50 text-emerald-700', amber: 'bg-amber-50 text-amber-700', violet: 'bg-violet-50 text-violet-700' };
   return <div className="rounded-2xl border border-slate-200 bg-white p-4 shadow-card"><span className={`inline-flex rounded-lg px-2 py-1 text-[10px] font-extrabold uppercase tracking-[0.12em] ${tones[tone]}`}>{label}</span><p className="mt-3 text-2xl font-extrabold tracking-tight text-slate-950">{value}</p><p className="mt-1 text-xs text-slate-500">{note}</p></div>;
@@ -54,14 +64,14 @@ export default function OverviewView({ leads, currentUser, teamMembers, onOpenLe
       return result;
     }, {})).sort((a, b) => b[1] - a[1]);
     const owners = Object.entries(openLeads.reduce((result, lead) => {
-      const owner = lead.owner || 'Unassigned';
+      const owner = trustedOwnerName(lead.owner, teamMembers);
       result[owner] = result[owner] || { count: 0, value: 0 };
       result[owner].count += 1;
       result[owner].value += Number(lead.value || 0);
       return result;
     }, {})).sort((a, b) => b[1].value - a[1].value);
     return { openLeads, won, lost, conversion, pipeline, dueLeads, sources, owners };
-  }, [leads]);
+  }, [leads, teamMembers]);
 
   const myTasks = tasks.filter((task) => task.assigned_to === currentUser.id && task.status !== 'done');
   const currentProfile = teamMembers.find((member) => member.user_id === currentUser.id);
@@ -109,7 +119,7 @@ export default function OverviewView({ leads, currentUser, teamMembers, onOpenLe
           <div className="mt-4 divide-y divide-slate-100">
             {data.dueLeads.slice(0, 8).map((lead) => {
               const days = daysFromToday(lead.followUpDate);
-              return <button className="flex w-full items-center justify-between gap-3 py-3 text-left" key={lead.id} onClick={() => onOpenLead(lead.id)} type="button"><div className="min-w-0"><p className="truncate text-sm font-bold text-slate-900">{lead.name}</p><p className="mt-0.5 truncate text-xs text-slate-500">{lead.company || lead.service} · {lead.owner || 'Unassigned'}</p></div><span className={`shrink-0 rounded-md px-2 py-1 text-[10px] font-bold ${days < 0 ? 'bg-rose-50 text-rose-700' : 'bg-amber-50 text-amber-700'}`}>{days < 0 ? `${Math.abs(days)}d overdue` : 'Today'}</span></button>;
+              return <button className="flex w-full items-center justify-between gap-3 py-3 text-left" key={lead.id} onClick={() => onOpenLead(lead.id)} type="button"><div className="min-w-0"><p className="truncate text-sm font-bold text-slate-900">{lead.name}</p><p className="mt-0.5 truncate text-xs text-slate-500">{lead.company || lead.service} · {trustedOwnerName(lead.owner, teamMembers)}</p></div><span className={`shrink-0 rounded-md px-2 py-1 text-[10px] font-bold ${days < 0 ? 'bg-rose-50 text-rose-700' : 'bg-amber-50 text-amber-700'}`}>{days < 0 ? `${Math.abs(days)}d overdue` : 'Today'}</span></button>;
             })}
             {!data.dueLeads.length ? <p className="py-8 text-center text-sm text-slate-400">No overdue follow-ups. Nicely done.</p> : null}
           </div>
