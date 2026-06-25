@@ -217,6 +217,57 @@ $$;
 revoke all on function public.set_team_member_role(uuid, text) from public;
 grant execute on function public.set_team_member_role(uuid, text) to authenticated;
 
+create or replace function public.sync_team_member_profile()
+returns trigger
+language plpgsql
+security definer
+set search_path = public
+as $$
+begin
+  insert into public.profiles (id, email, full_name, role)
+  values (
+    new.user_id,
+    lower(new.email),
+    new.name,
+    case when new.role in ('admin', 'finance') then new.role else 'member' end::public.app_role
+  )
+  on conflict (id) do update
+  set email = excluded.email,
+      full_name = excluded.full_name,
+      role = case
+        when public.profiles.role in ('admin', 'finance') then public.profiles.role
+        else excluded.role
+      end,
+      updated_at = now();
+  return new;
+end;
+$$;
+
+drop trigger if exists sync_team_member_profile_trigger on public.team_members;
+create trigger sync_team_member_profile_trigger
+after insert or update of name, email, role on public.team_members
+for each row execute function public.sync_team_member_profile();
+
+insert into public.team_members (user_id, name, email, last_seen_at)
+select
+  users.id,
+  coalesce(nullif(trim(users.raw_user_meta_data ->> 'name'), ''), split_part(users.email, '@', 1)),
+  lower(users.email),
+  coalesce(users.last_sign_in_at, users.created_at, now())
+from auth.users
+where lower(users.email) like '%@yalabyte.com'
+on conflict (user_id) do update
+set name = excluded.name,
+    email = excluded.email,
+    last_seen_at = greatest(public.team_members.last_seen_at, excluded.last_seen_at);
+
+update public.team_members
+set role = 'admin'
+where user_id = (
+  select user_id from public.team_members order by created_at asc limit 1
+)
+and not exists (select 1 from public.team_members where role = 'admin');
+
 insert into public.profiles (id, email, full_name, role)
 select
   user_id,
