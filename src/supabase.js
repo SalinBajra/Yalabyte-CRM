@@ -293,7 +293,7 @@ export async function upsertFinanceDealFromLead(lead, user) {
     service: lead.service || '',
     deal_value_npr: Number(lead.value || 0),
     owner_name: lead.owner || user?.name || '',
-    owner_email: user?.email || '',
+    owner_email: lead.ownerEmail || user?.email || '',
     lead_data: lead,
     status: 'ready_to_invoice',
     won_at: lead.wonAt || lead.financeHandoffAt || now,

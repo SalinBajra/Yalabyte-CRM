@@ -850,6 +850,16 @@ export default function CRMApp() {
     URL.revokeObjectURL(url);
   };
 
+  const prepareFinanceLead = (lead) => {
+    const owner = trustedOwnerName(lead.owner, teamMembers);
+    const ownerProfile = teamMembers.find((member) => samePersonName(member.name, owner));
+    return {
+      ...lead,
+      owner,
+      ownerEmail: ownerProfile?.email || currentUser?.email || ''
+    };
+  };
+
   const saveDraft = async (event) => {
     event.preventDefault();
     if (duplicateLead) {
@@ -886,9 +896,10 @@ export default function CRMApp() {
           }
         }
         if (savedLead.status === 'won' && supabase) {
-          await upsertFinanceDealFromLead(savedLead, currentUser);
+          const financeLead = prepareFinanceLead(savedLead);
+          await upsertFinanceDealFromLead(financeLead, currentUser);
           savedLead = {
-            ...savedLead,
+            ...financeLead,
             financeHandoffAt: new Date().toISOString(),
             financeStatus: 'ready_to_invoice',
             activities: [
@@ -1012,8 +1023,10 @@ export default function CRMApp() {
     setFinanceHandoffBusy(true);
     setDataError('');
     try {
-      await upsertFinanceDealFromLead(lead, currentUser);
+      const handoffLead = prepareFinanceLead(lead);
+      await upsertFinanceDealFromLead(handoffLead, currentUser);
       updateLead(lead.id, {
+        ...handoffLead,
         financeHandoffAt: new Date().toISOString(),
         financeStatus: 'ready_to_invoice'
       }, 'Won deal sent to Finance for invoicing.', 'Finance');
@@ -1526,7 +1539,7 @@ export default function CRMApp() {
 	                    ) : <>
 	                      {draft.status === 'won' ? (
 	                        <div className="flex flex-wrap items-center gap-2">
-	                          <button className="rounded-lg bg-violet-600 px-4 py-2.5 text-sm font-bold text-white shadow-sm hover:bg-violet-700 disabled:cursor-wait disabled:opacity-60" disabled={financeHandoffBusy || hasUnsavedLeadChanges} onClick={() => sendLeadToFinance(currentDraftLead())} title={hasUnsavedLeadChanges ? 'Save changes before sending to Finance' : 'Send this won lead to Finance'} type="button">{financeHandoffBusy ? 'Sending…' : selectedLead?.financeHandoffAt ? 'Refresh Finance' : 'Send to Finance'}</button>
+	                          <button className="rounded-lg bg-violet-600 px-4 py-2.5 text-sm font-bold text-white shadow-sm hover:bg-violet-700 disabled:cursor-wait disabled:opacity-60" disabled={financeHandoffBusy} onClick={() => sendLeadToFinance(currentDraftLead())} title="Save and send this won lead to Finance" type="button">{financeHandoffBusy ? 'Sending…' : selectedLead?.financeHandoffAt ? 'Refresh Finance' : hasUnsavedLeadChanges ? 'Save & send to Finance' : 'Send to Finance'}</button>
 	                          {financeAppUrl ? <a className="rounded-lg border border-violet-200 bg-violet-50 px-4 py-2.5 text-sm font-bold text-violet-700 hover:bg-violet-100" href={financeAppUrl} rel="noreferrer" target="_blank">Open Finance</a> : null}
 	                        </div>
 	                      ) : null}
@@ -1715,7 +1728,7 @@ export default function CRMApp() {
 	                    <p className="mt-0.5 text-xs leading-5 text-violet-700">{selectedLead.financeHandoffAt ? `Synced ${formatDate(selectedLead.financeHandoffAt)}.` : 'Ready to send for invoicing.'}</p>
 	                  </div>
 	                  <div className="flex flex-wrap gap-2">
-	                    <button className="rounded-lg bg-violet-600 px-3 py-2 text-xs font-bold text-white hover:bg-violet-700 disabled:cursor-wait disabled:opacity-60" disabled={financeHandoffBusy || hasUnsavedLeadChanges} onClick={() => sendLeadToFinance(currentDraftLead())} type="button">{financeHandoffBusy ? 'Sending…' : selectedLead.financeHandoffAt ? 'Refresh' : 'Send'}</button>
+	                    <button className="rounded-lg bg-violet-600 px-3 py-2 text-xs font-bold text-white hover:bg-violet-700 disabled:cursor-wait disabled:opacity-60" disabled={financeHandoffBusy} onClick={() => sendLeadToFinance(currentDraftLead())} type="button">{financeHandoffBusy ? 'Sending…' : selectedLead.financeHandoffAt ? 'Refresh' : hasUnsavedLeadChanges ? 'Save & send' : 'Send'}</button>
 	                    {financeAppUrl ? <a className="rounded-lg bg-white px-3 py-2 text-xs font-bold text-violet-700 ring-1 ring-violet-100 hover:bg-violet-100" href={financeAppUrl} rel="noreferrer" target="_blank">Open</a> : null}
 	                  </div>
 	                </div>
