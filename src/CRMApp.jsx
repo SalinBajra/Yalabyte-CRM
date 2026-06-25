@@ -187,7 +187,7 @@ function Brand({ compact = false, inverted = false }) {
         <p className={`${compact ? 'text-lg' : 'text-xl'} font-extrabold tracking-tight ${inverted ? 'text-white' : 'text-slate-950'}`}>
           Yala<span className="text-cyanbrand-500">Byte</span>
         </p>
-        <p className={`text-[10px] font-bold uppercase tracking-[0.2em] ${inverted ? 'text-slate-400' : 'text-slate-500'}`}>Team CRM</p>
+        <p className={`text-[10px] font-bold uppercase tracking-[0.2em] ${inverted ? 'text-slate-400' : 'text-slate-500'}`}>CRMByte</p>
       </div>
     </div>
   );
@@ -213,7 +213,7 @@ function WorkspaceLoader({ user, compact = false }) {
         <span className="mx-auto mt-10 flex h-16 w-16 items-center justify-center rounded-full border border-cyanbrand-400/30 bg-white/10 text-lg font-extrabold text-cyanbrand-300 shadow-[0_0_40px_rgba(34,211,238,0.15)]">{initials}</span>
         <p className="mt-6 text-xs font-extrabold uppercase tracking-[0.2em] text-cyanbrand-400">Team workspace</p>
         <h1 className="mt-3 text-2xl font-extrabold tracking-tight sm:text-3xl">Welcome, {user?.name || 'team member'}</h1>
-        <p className="mt-2 text-sm text-slate-300">Your YalaByte workspace is getting everything ready.</p>
+        <p className="mt-2 text-sm text-slate-300">CRMByte is getting everything ready.</p>
         <span className="mx-auto mt-6 block h-1 w-24 overflow-hidden rounded-full bg-white/10"><span className="block h-full w-1/2 animate-pulse rounded-full bg-cyanbrand-400" /></span>
       </div>
     </main>
@@ -447,7 +447,7 @@ function LoginGate({ onUnlock }) {
             <div className="mt-8 lg:mt-0">
               <p className="text-xs font-bold uppercase tracking-[0.18em] text-cyan-700">Secure access</p>
               <h2 className="mt-3 text-3xl font-extrabold tracking-tight">Welcome back</h2>
-              <p className="mt-2 text-sm leading-6 text-slate-600">Use your company email to continue to the YalaByte lead workspace.</p>
+              <p className="mt-2 text-sm leading-6 text-slate-600">Use your company email to continue to CRMByte.</p>
             </div>
           <div className="mt-6 grid grid-cols-2 rounded-md bg-slate-100 p-1">
             <button
@@ -838,7 +838,7 @@ export default function CRMApp() {
     const end = endDate.toISOString().slice(0, 10).replaceAll('-', '');
     const clean = (value) => String(value || '').replaceAll('\\', '\\\\').replaceAll(',', '\\,').replaceAll('\n', '\\n');
     const calendar = [
-      'BEGIN:VCALENDAR', 'VERSION:2.0', 'PRODID:-//YalaByte CRM//EN', 'BEGIN:VEVENT',
+      'BEGIN:VCALENDAR', 'VERSION:2.0', 'PRODID:-//CRMByte//EN', 'BEGIN:VEVENT',
       `UID:${selectedLead.id}@crm.yalabyte.com`, `DTSTART;VALUE=DATE:${start}`, `DTEND;VALUE=DATE:${end}`,
       `SUMMARY:${clean(`Follow up with ${selectedLead.name}`)}`,
       `DESCRIPTION:${clean([selectedLead.company, selectedLead.service, selectedLead.phone, selectedLead.email].filter(Boolean).join(' · '))}`,

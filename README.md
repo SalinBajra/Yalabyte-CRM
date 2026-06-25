@@ -1,4 +1,4 @@
-# YalaByte CRM
+# CRMByte
 
 Standalone CRM frontend for the YalaByte team, built with React, Vite, and Tailwind CSS.
 
