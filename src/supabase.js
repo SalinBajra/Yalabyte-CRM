@@ -51,6 +51,17 @@ export async function registerTeamMember(user) {
     email: user.email.toLowerCase(),
     last_seen_at: new Date().toISOString()
   };
+  const profileChanges = {
+    id: user.id,
+    full_name: user.name,
+    email: user.email.toLowerCase(),
+    updated_at: new Date().toISOString()
+  };
+  const { error: profileError } = await supabase
+    .from('profiles')
+    .upsert(profileChanges, { onConflict: 'id' });
+  if (profileError) throw profileError;
+
   const { data: existing, error: lookupError } = await supabase
     .from('team_members')
     .select('user_id')
