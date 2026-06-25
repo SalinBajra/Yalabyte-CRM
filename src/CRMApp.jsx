@@ -159,6 +159,7 @@ function Stat({ label, value, icon = 'leads', tone = 'cyan' }) {
     cyan: 'border-cyan-100 bg-cyan-50 text-cyan-700',
     sky: 'border-sky-100 bg-sky-50 text-sky-700',
     emerald: 'border-emerald-100 bg-emerald-50 text-emerald-700',
+    violet: 'border-violet-100 bg-violet-50 text-violet-700',
     amber: 'border-amber-100 bg-amber-50 text-amber-700'
   };
   return (
@@ -788,12 +789,13 @@ export default function CRMApp() {
 
   const stats = useMemo(() => {
     const open = leads.filter((lead) => !['won', 'lost'].includes(lead.status)).length;
+    const financePending = leads.filter((lead) => lead.status === 'won' && !lead.financeHandoffAt).length;
     const totalValue = leads.reduce((sum, lead) => sum + Number(lead.value || 0), 0);
     const dueToday = leads.filter((lead) => {
       const days = daysUntil(lead.followUpDate);
       return days !== null && days <= 0 && !['won', 'lost'].includes(lead.status);
     }).length;
-    return { total: leads.length, open, totalValue, dueToday };
+    return { total: leads.length, open, financePending, totalValue, dueToday };
   }, [leads]);
 
   const updateLead = (id, changes, activityText = '', type = 'Update') => {
@@ -1169,6 +1171,10 @@ export default function CRMApp() {
   };
   const changeTeamRole = async (member, role) => {
     setRoleError('');
+    if (['admin', 'finance'].includes(role) && member.role !== role) {
+      const confirmed = window.confirm(`Grant ${role === 'admin' ? 'Admin' : 'Finance'} access to ${member.name}?`);
+      if (!confirmed) return;
+    }
     try {
       await setTeamMemberRole(member.user_id, role);
       setTeamMembers((current) => current.map((item) => item.user_id === member.user_id ? { ...item, role } : item));
@@ -1320,6 +1326,7 @@ export default function CRMApp() {
           <Stat label="Total leads" value={stats.total} icon="leads" tone="cyan" />
           <Stat label="Open leads" value={stats.open} icon="open" tone="sky" />
           <Stat label="Pipeline value" value={money(stats.totalValue)} icon="pipeline" tone="emerald" />
+          <Stat label="Finance pending" value={stats.financePending} icon="pipeline" tone="violet" />
           <Stat label="Due now" value={stats.dueToday} icon="due" tone="amber" />
         </div> : null}
       </div>
