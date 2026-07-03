@@ -203,21 +203,6 @@ function Brand({ compact = false, inverted = false }) {
   );
 }
 
-function MobileInstallNotice({ onOpen }) {
-  return (
-    <div className="mx-auto max-w-[1500px] px-3 pt-3 sm:px-6">
-      <div className="flex flex-col gap-2 rounded-xl border border-cyan-100 bg-cyan-50 px-4 py-3 text-sm text-cyan-900 shadow-sm sm:flex-row sm:items-center sm:justify-between">
-        <p className="font-semibold leading-6">
-          Want the mobile app? Open this same CRMByte site on your Android phone, sign in, then use the Mobile App tab to download the APK.
-        </p>
-        <button className="self-start rounded-lg bg-cyanbrand-500 px-3 py-2 text-xs font-extrabold text-navy-950 transition hover:bg-cyanbrand-400 sm:self-auto" onClick={onOpen} type="button">
-          Mobile App
-        </button>
-      </div>
-    </div>
-  );
-}
-
 function WorkspaceLoader({ user, compact = false }) {
   const initials = user?.name?.split(' ').map((part) => part[0]).slice(0, 2).join('') || 'YB';
   if (compact) {
@@ -1539,7 +1524,6 @@ export default function CRMApp() {
           ))}
         </nav>
       </div>
-      <MobileInstallNotice onOpen={() => setActiveWorkspace('mobile')} />
       {activeWorkspace === 'leads' ? <div className="mx-auto grid max-w-[1500px] grid-cols-2 overflow-hidden border-t border-slate-200 bg-slate-50/70 sm:grid-cols-4">
           <Stat label="Total leads" value={stats.total} icon="leads" tone="cyan" />
           <Stat label="Open leads" value={stats.open} icon="open" tone="sky" />
