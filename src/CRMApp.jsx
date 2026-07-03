@@ -13,7 +13,8 @@ import {
   getRememberedEmail,
   readBiometricCredentials,
   rememberEmail,
-  saveBiometricCredentials
+  saveBiometricCredentials,
+  verifyDeviceIdentity
 } from './capacitor/biometricAuth';
 import { getCachedLeads, getCachedTeamMembers } from './capacitor/offlineStorage';
 import { isNativeMobile, useCapacitorInit, useOfflineCache } from './hooks/useCapacitor';
@@ -226,6 +227,69 @@ function WorkspaceLoader({ user, compact = false }) {
         <h1 className="mt-3 text-2xl font-extrabold tracking-tight sm:text-3xl">Welcome, {user?.name || 'team member'}</h1>
         <p className="mt-2 text-sm text-slate-300">CRMByte is getting everything ready.</p>
         <span className="mx-auto mt-6 block h-1 w-24 overflow-hidden rounded-full bg-white/10"><span className="block h-full w-1/2 animate-pulse rounded-full bg-cyanbrand-400" /></span>
+      </div>
+    </main>
+  );
+}
+
+function NativeUnlockGate({ user, onSignOut, onUnlock }) {
+  const [status, setStatus] = useState({ available: false, enabled: false, label: 'biometric unlock' });
+  const [busy, setBusy] = useState(true);
+  const [error, setError] = useState('');
+  const promptedRef = useRef(false);
+
+  const unlock = async () => {
+    setBusy(true);
+    setError('');
+    try {
+      await verifyDeviceIdentity();
+      onUnlock();
+    } catch (unlockError) {
+      setError(unlockError.message || `${status.label} unlock failed. Try again or sign in with your password.`);
+    } finally {
+      setBusy(false);
+    }
+  };
+
+  useEffect(() => {
+    let active = true;
+    getBiometricStatus()
+      .then((nextStatus) => {
+        if (!active) return;
+        setStatus(nextStatus);
+        setBusy(false);
+        if (nextStatus.available && !promptedRef.current) {
+          promptedRef.current = true;
+          window.setTimeout(unlock, 250);
+        }
+      })
+      .catch(() => {
+        if (active) setBusy(false);
+      });
+    return () => {
+      active = false;
+    };
+  }, []);
+
+  return (
+    <main className="login-shell flex min-h-screen items-center justify-center px-5 text-white">
+      <div className="w-full max-w-sm rounded-3xl border border-white/10 bg-white p-7 text-center text-slate-950 shadow-soft">
+        <div className="flex justify-center"><Brand /></div>
+        <p className="mt-8 text-xs font-extrabold uppercase tracking-[0.18em] text-cyan-700">App locked</p>
+        <h1 className="mt-3 text-2xl font-extrabold tracking-tight">Welcome back, {user?.name || 'team member'}</h1>
+        <p className="mt-2 text-sm leading-6 text-slate-500">Confirm it is you before opening CRMByte on this device.</p>
+        {error ? <p className="mt-5 rounded-lg border border-red-100 bg-red-50 px-4 py-3 text-sm font-semibold text-red-700">{error}</p> : null}
+        <button
+          className="mt-6 w-full rounded-lg bg-cyanbrand-500 px-4 py-3 text-sm font-extrabold text-navy-950 shadow-sm transition hover:bg-cyanbrand-400 disabled:cursor-wait disabled:opacity-60"
+          disabled={busy}
+          onClick={unlock}
+          type="button"
+        >
+          {busy ? 'Checking device…' : `Unlock with ${status.label}`}
+        </button>
+        <button className="mt-4 text-xs font-bold text-slate-400 underline-offset-4 hover:text-slate-600 hover:underline" onClick={onSignOut} type="button">
+          Sign in with password
+        </button>
       </div>
     </main>
   );
@@ -608,6 +672,7 @@ function LoginGate({ onUnlock }) {
 export default function CRMApp() {
   const [currentUser, setCurrentUser] = useState(null);
   const [authReady, setAuthReady] = useState(false);
+  const [appUnlocked, setAppUnlocked] = useState(() => !isNativeMobile());
   const [dataReady, setDataReady] = useState(false);
   const [syncState, setSyncState] = useState('saved');
   const [dataError, setDataError] = useState('');
@@ -686,6 +751,7 @@ export default function CRMApp() {
         supabase.auth.signOut();
       } else {
         setCurrentUser(user);
+        if (!user) setAppUnlocked(!isNativeMobile());
       }
       setAuthReady(true);
     };
@@ -1245,6 +1311,7 @@ export default function CRMApp() {
     else window.localStorage.removeItem(SESSION_KEY);
     window.sessionStorage.removeItem(WELCOME_SESSION_KEY);
     setWelcomeMode('login');
+    setAppUnlocked(!isNativeMobile());
     setCurrentUser(null);
   };
 
@@ -1253,7 +1320,18 @@ export default function CRMApp() {
   }
 
   if (!currentUser) {
-    return <LoginGate onUnlock={setCurrentUser} />;
+    return (
+      <LoginGate
+        onUnlock={(user) => {
+          setCurrentUser(user);
+          setAppUnlocked(true);
+        }}
+      />
+    );
+  }
+
+  if (!appUnlocked) {
+    return <NativeUnlockGate onSignOut={signOut} onUnlock={() => setAppUnlocked(true)} user={currentUser} />;
   }
 
   if (!dataReady) {

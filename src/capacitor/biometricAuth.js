@@ -36,11 +36,16 @@ export async function getBiometricStatus() {
   if (!isNativeApp()) return { available: false, enabled: false, label: 'biometric unlock' };
   try {
     const result = await NativeBiometric.isAvailable({ useFallback: true });
-    const { value } = await Preferences.get({ key: BIOMETRIC_EMAIL_KEY });
+    const [{ value: biometricEmail }, { value: rememberedEmail }, saved] = await Promise.all([
+      Preferences.get({ key: BIOMETRIC_EMAIL_KEY }),
+      Preferences.get({ key: REMEMBERED_EMAIL_KEY }),
+      NativeBiometric.isCredentialsSaved({ server: BIOMETRIC_SERVER }).catch(() => ({ isSaved: false }))
+    ]);
+    const email = biometricEmail || rememberedEmail || '';
     return {
       available: Boolean(result.isAvailable),
-      enabled: Boolean(result.isAvailable && value),
-      email: value || '',
+      enabled: Boolean(result.isAvailable && saved.isSaved),
+      email,
       label: biometricLabel(result.biometryType)
     };
   } catch {
@@ -77,14 +82,41 @@ export async function readBiometricCredentials() {
   if (!isNativeApp()) return null;
   const status = await getBiometricStatus();
   if (!status.enabled) return null;
-  return NativeBiometric.getSecureCredentials({
-    server: BIOMETRIC_SERVER,
+  const prompt = {
     reason: 'Unlock CRMByte',
     title: 'Unlock CRMByte',
     subtitle: status.email,
     description: 'Use your device unlock to sign in.',
     negativeButtonText: 'Use password'
+  };
+  try {
+    return await NativeBiometric.getSecureCredentials({
+      server: BIOMETRIC_SERVER,
+      ...prompt
+    });
+  } catch (error) {
+    await NativeBiometric.verifyIdentity({
+      ...prompt,
+      useFallback: true,
+      maxAttempts: 3
+    });
+    return NativeBiometric.getCredentials({ server: BIOMETRIC_SERVER });
+  }
+}
+
+export async function verifyDeviceIdentity() {
+  if (!isNativeApp()) return true;
+  const status = await getBiometricStatus();
+  if (!status.available) return true;
+  await NativeBiometric.verifyIdentity({
+    reason: 'Unlock CRMByte',
+    title: 'Unlock CRMByte',
+    subtitle: status.email || 'Team workspace',
+    description: 'Confirm it is you before opening CRM data.',
+    useFallback: true,
+    maxAttempts: 3
   });
+  return true;
 }
 
 export async function deleteBiometricCredentials() {
