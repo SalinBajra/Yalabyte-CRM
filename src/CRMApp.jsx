@@ -1517,12 +1517,12 @@ export default function CRMApp() {
             </button>
             <input ref={importInputRef} className="hidden" type="file" accept="application/json" onChange={importLeads} />
             <button
-              className="rounded-xl bg-cyanbrand-500 px-4 py-2.5 text-sm font-extrabold text-navy-950 shadow-sm transition hover:-translate-y-0.5 hover:bg-cyanbrand-400 hover:shadow-md disabled:cursor-not-allowed disabled:opacity-60"
-              disabled={isCreatingLead}
-              onClick={createLead}
+              className={`rounded-xl px-4 py-2.5 text-sm font-extrabold shadow-sm transition hover:-translate-y-0.5 hover:shadow-md ${isCreatingLead ? 'border border-slate-200 bg-white text-slate-600 hover:bg-slate-50' : 'bg-cyanbrand-500 text-navy-950 hover:bg-cyanbrand-400'}`}
+              onClick={isCreatingLead ? cancelCreateLead : createLead}
+              type="button"
             >
-              <span className="sm:hidden">{isCreatingLead ? 'Drafting…' : 'New'}</span>
-              <span className="hidden sm:inline">{isCreatingLead ? 'Drafting…' : 'New Lead'}</span>
+              <span className="sm:hidden">{isCreatingLead ? 'Cancel' : 'New'}</span>
+              <span className="hidden sm:inline">{isCreatingLead ? 'Cancel draft' : 'New Lead'}</span>
             </button>
             <button className="flex h-10 w-10 items-center justify-center rounded-xl border border-slate-200 bg-white text-slate-600 transition hover:border-rose-200 hover:bg-rose-50 hover:text-rose-600" onClick={signOut} aria-label="Sign out" title="Sign out">
               <SignOutIcon />
@@ -1729,7 +1729,7 @@ export default function CRMApp() {
           <form className="rounded-xl border border-slate-200/90 bg-white p-3 shadow-card sm:rounded-2xl sm:p-6" onSubmit={saveDraft}>
             {selectedLead || isCreatingLead ? (
               <>
-                <button className="mb-3 inline-flex items-center gap-1.5 rounded-lg bg-slate-100 px-3 py-2 text-xs font-bold text-slate-600 md:hidden" onClick={() => setMobilePane('list')} type="button">
+                <button className="mb-3 inline-flex items-center gap-1.5 rounded-lg bg-slate-100 px-3 py-2 text-xs font-bold text-slate-600 md:hidden" onClick={isCreatingLead ? cancelCreateLead : () => setMobilePane('list')} type="button">
                   <span aria-hidden="true">←</span> Back to leads
                 </button>
                 <div className="flex flex-col gap-3 border-b border-slate-200 pb-4 sm:flex-row sm:items-start sm:justify-between">
