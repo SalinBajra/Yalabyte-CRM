@@ -46,6 +46,7 @@ npm run build         # Build for web deployment
 
 # Mobile development
 npm run build:mobile  # Build web + sync to native projects
+npm run build:android:apk # Build Android APK for the CRM download QR
 npm run build:ios     # Build + open Xcode for iOS development
 npm run build:android # Build + open Android Studio for Android development
 ```
@@ -73,6 +74,16 @@ npm run build
 4. Press ▶ Run
 5. App installs on device
 
+### Android APK QR distribution
+
+After Java and Android Studio are installed, run:
+
+```bash
+npm run build:android:apk
+```
+
+This creates `public/downloads/crmbyte.apk` and rebuilds the web app. Deploy the CRM web app, then open **Mobile App** in CRMByte to show the QR code and download button. Android users may need to allow installs from the browser on first install.
+
 ## Testing on Devices
 
 ### Share with Team (Free)
@@ -83,8 +94,8 @@ npm run build
 - Team members can install and test
 
 **Android:**
-- Use Google Play internal testing track
-- Or share APK file directly via QR code
+- Use the CRMByte **Mobile App** QR page for direct APK installs
+- Or use Google Play internal testing track later for managed rollout
 
 ## Key Points
 

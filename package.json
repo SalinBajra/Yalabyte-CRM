@@ -8,6 +8,7 @@
     "build": "vite build",
     "preview": "vite preview --host 0.0.0.0",
     "build:mobile": "vite build && npx cap sync",
+    "build:android:apk": "npm run build:mobile && cd android && ./gradlew assembleDebug && mkdir -p ../public/downloads && cp app/build/outputs/apk/debug/app-debug.apk ../public/downloads/crmbyte.apk && cd .. && npm run build",
     "build:ios": "npm run build:mobile && npx cap open ios",
     "build:android": "npm run build:mobile && npx cap open android"
   },
@@ -19,6 +20,7 @@
     "@capacitor/preferences": "^8.0.1",
     "@capacitor/push-notifications": "^8.1.1",
     "@supabase/supabase-js": "^2.108.2",
+    "qrcode": "^1.5.4",
     "react": "^18.3.1",
     "react-dom": "^18.3.1"
   },
