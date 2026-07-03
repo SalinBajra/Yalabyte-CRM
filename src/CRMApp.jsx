@@ -7,6 +7,14 @@ import PipelineBoard from './PipelineBoard';
 import ProfileModal from './ProfileModal';
 import SupportView from './SupportView';
 import TeamAvatar from './TeamAvatar';
+import {
+  deleteBiometricCredentials,
+  getBiometricStatus,
+  getRememberedEmail,
+  readBiometricCredentials,
+  rememberEmail,
+  saveBiometricCredentials
+} from './capacitor/biometricAuth';
 import { getCachedLeads, getCachedTeamMembers } from './capacitor/offlineStorage';
 import { isNativeMobile, useCapacitorInit, useOfflineCache } from './hooks/useCapacitor';
 import {
@@ -336,9 +344,25 @@ function LoginGate({ onUnlock }) {
   const [name, setName] = useState('');
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
+  const [rememberDevice, setRememberDevice] = useState(true);
+  const [biometricStatus, setBiometricStatus] = useState({ available: false, enabled: false, label: 'biometric unlock' });
   const [error, setError] = useState('');
   const [message, setMessage] = useState('');
   const [busy, setBusy] = useState(false);
+
+  useEffect(() => {
+    let active = true;
+    Promise.all([getRememberedEmail(), getBiometricStatus()])
+      .then(([rememberedEmail, nextBiometricStatus]) => {
+        if (!active) return;
+        if (rememberedEmail) setEmail(rememberedEmail);
+        setBiometricStatus(nextBiometricStatus);
+      })
+      .catch(() => {});
+    return () => {
+      active = false;
+    };
+  }, []);
 
   const handleSubmit = async (event) => {
     event.preventDefault();
@@ -413,12 +437,49 @@ function LoginGate({ onUnlock }) {
         password
       });
       if (signInError) throw signInError;
+      await rememberEmail(normalizedEmail);
+      if (rememberDevice && biometricStatus.available) {
+        await saveBiometricCredentials(normalizedEmail, password)
+          .then(() => setBiometricStatus((current) => ({ ...current, enabled: true, email: normalizedEmail })))
+          .catch(() => setMessage(`Signed in. ${biometricStatus.label} was not enabled on this device.`));
+      }
       onUnlock(toCRMUser(data.user));
     } catch (authError) {
       setError(authError.message || 'Unable to authenticate. Please try again.');
     } finally {
       setBusy(false);
     }
+  };
+
+  const unlockWithBiometrics = async () => {
+    if (!supabase || busy) return;
+    setBusy(true);
+    setError('');
+    setMessage('');
+    try {
+      const credentials = await readBiometricCredentials();
+      if (!credentials?.username || !credentials?.password) {
+        setError(`${biometricStatus.label} is not set up for CRMByte yet.`);
+        return;
+      }
+      const { data, error: signInError } = await supabase.auth.signInWithPassword({
+        email: credentials.username,
+        password: credentials.password
+      });
+      if (signInError) throw signInError;
+      await rememberEmail(credentials.username);
+      onUnlock(toCRMUser(data.user));
+    } catch (authError) {
+      setError(authError.message || `${biometricStatus.label} unlock failed. Use your password once to refresh it.`);
+    } finally {
+      setBusy(false);
+    }
+  };
+
+  const forgetBiometrics = async () => {
+    await deleteBiometricCredentials();
+    setBiometricStatus((current) => ({ ...current, enabled: false, email: '' }));
+    setMessage(`${biometricStatus.label} unlock removed from this device.`);
   };
 
   return (
@@ -502,6 +563,30 @@ function LoginGate({ onUnlock }) {
               autoComplete={mode === 'signup' ? 'new-password' : 'current-password'}
             />
           </label>
+          {mode === 'signin' && biometricStatus.available ? (
+            <label className="mt-4 flex items-start gap-3 rounded-xl border border-slate-200 bg-slate-50 px-3.5 py-3 text-sm font-semibold text-slate-700">
+              <input
+                className="mt-0.5 h-4 w-4 rounded border-slate-300 text-cyanbrand-500 focus:ring-cyanbrand-200"
+                checked={rememberDevice}
+                onChange={(event) => setRememberDevice(event.target.checked)}
+                type="checkbox"
+              />
+              <span>
+                Remember this device
+                <span className="mt-0.5 block text-xs font-medium leading-5 text-slate-500">Enable {biometricStatus.label} for the next login.</span>
+              </span>
+            </label>
+          ) : null}
+          {mode === 'signin' && biometricStatus.enabled ? (
+            <div className="mt-4 grid gap-2">
+              <button className="w-full rounded-lg border border-cyan-200 bg-cyan-50 px-4 py-3 text-sm font-extrabold text-cyan-800 transition hover:bg-cyan-100 disabled:opacity-60" disabled={busy} onClick={unlockWithBiometrics} type="button">
+                Unlock with {biometricStatus.label}
+              </button>
+              <button className="text-xs font-bold text-slate-400 underline-offset-4 hover:text-slate-600 hover:underline" onClick={forgetBiometrics} type="button">
+                Forget {biometricStatus.label} on this device
+              </button>
+            </div>
+          ) : null}
           {error ? (
             <div className="mt-4 rounded-lg border border-red-100 bg-red-50 px-4 py-3" role="alert">
               <p className="text-xs font-extrabold uppercase tracking-[0.12em] text-red-700">Access rejected</p>
