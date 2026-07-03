@@ -702,11 +702,28 @@ export default function CRMApp() {
   const [activeWorkspace, setActiveWorkspace] = useState('overview');
   const [profileOpen, setProfileOpen] = useState(false);
   const importInputRef = useRef(null);
+  const nativeShell = isNativeMobile();
 
   const selectedLead = isCreatingLead ? null : leads.find((lead) => lead.id === selectedId) || null;
 
   useCapacitorInit(currentUser);
   useOfflineCache(leads, teamMembers);
+
+  useEffect(() => {
+    if (nativeShell && activeWorkspace === 'mobile') setActiveWorkspace('overview');
+  }, [nativeShell, activeWorkspace]);
+
+  useEffect(() => {
+    if (!nativeShell) return undefined;
+    const dismissKeyboard = (event) => {
+      const target = event.target;
+      if (target instanceof HTMLElement && target.closest('input, textarea, select, [contenteditable="true"]')) return;
+      const active = document.activeElement;
+      if (active instanceof HTMLElement && ['INPUT', 'TEXTAREA', 'SELECT'].includes(active.tagName)) active.blur();
+    };
+    document.addEventListener('touchstart', dismissKeyboard, { capture: true, passive: true });
+    return () => document.removeEventListener('touchstart', dismissKeyboard, { capture: true });
+  }, [nativeShell]);
 
   useEffect(() => {
     window.localStorage.setItem(STORAGE_KEY, JSON.stringify(leads));
@@ -1348,7 +1365,14 @@ export default function CRMApp() {
   const readNotificationIdSet = new Set(readNotificationIds);
   const unreadNotificationCount = notifications.filter((notification) => !readNotificationIdSet.has(notification.id)).length;
   const todayLabel = new Intl.DateTimeFormat('en-US', { month: 'long', day: 'numeric', year: 'numeric' }).format(new Date());
-  const workspaceNav = [['overview', 'Dashboard'], ['leads', 'Leads'], ['pipeline', 'Pipeline'], ['contacts', 'Contacts'], ['support', 'Support'], ['mobile', 'Mobile App']];
+  const workspaceNav = [
+    ['overview', 'Dashboard'],
+    ['leads', 'Leads'],
+    ['pipeline', 'Pipeline'],
+    ['contacts', 'Contacts'],
+    ['support', 'Support'],
+    ...(nativeShell ? [] : [['mobile', 'Mobile App']])
+  ];
 
   const markAllNotificationsRead = async () => {
     setDataError('');
@@ -1558,7 +1582,7 @@ export default function CRMApp() {
         <ContactsView currentUser={currentUser} teamMembers={teamMembers} />
       ) : activeWorkspace === 'support' ? (
         <SupportView currentUser={currentUser} leads={leads} teamMembers={teamMembers} />
-      ) : activeWorkspace === 'mobile' ? (
+      ) : activeWorkspace === 'mobile' && !nativeShell ? (
         <MobileAppView />
       ) : (
         <>
