@@ -190,16 +190,29 @@ function Stat({ label, value, icon = 'leads', tone = 'cyan' }) {
 function Brand({ compact = false, inverted = false }) {
   return (
     <div className="flex items-center gap-3">
-      <img
-        className={`${compact ? 'h-10 w-10' : 'h-12 w-12'} rounded-xl object-cover shadow-sm`}
-        src="/favicon.png"
-        alt="YalaByte logo"
-      />
+      <span className={`grid ${compact ? 'h-10 w-10' : 'h-12 w-12'} place-items-center rounded-xl bg-white p-2 shadow-sm`}>
+        <img src="/images/yalabyte-yb-logo.png" alt="YalaByte logo" className="h-full w-full object-contain" />
+      </span>
       <div>
         <p className={`${compact ? 'text-lg' : 'text-xl'} font-extrabold tracking-tight ${inverted ? 'text-white' : 'text-slate-950'}`}>
           Yala<span className="text-cyanbrand-500">Byte</span>
         </p>
         <p className={`text-[10px] font-bold uppercase tracking-[0.2em] ${inverted ? 'text-slate-400' : 'text-slate-500'}`}>CRMByte</p>
+      </div>
+    </div>
+  );
+}
+
+function MobileInstallNotice({ onOpen }) {
+  return (
+    <div className="mx-auto max-w-[1500px] px-3 pt-3 sm:px-6">
+      <div className="flex flex-col gap-2 rounded-xl border border-cyan-100 bg-cyan-50 px-4 py-3 text-sm text-cyan-900 shadow-sm sm:flex-row sm:items-center sm:justify-between">
+        <p className="font-semibold leading-6">
+          Want the mobile app? Open this same CRMByte site on your Android phone, sign in, then use the Mobile App tab to download the APK.
+        </p>
+        <button className="self-start rounded-lg bg-cyanbrand-500 px-3 py-2 text-xs font-extrabold text-navy-950 transition hover:bg-cyanbrand-400 sm:self-auto" onClick={onOpen} type="button">
+          Mobile App
+        </button>
       </div>
     </div>
   );
@@ -548,8 +561,8 @@ function LoginGate({ onUnlock }) {
 
   return (
     <main className="login-shell min-h-screen px-5 py-8 text-white sm:py-10">
-      <div className="mx-auto flex min-h-[calc(100vh-5rem)] max-w-5xl items-center">
-        <div className="grid w-full overflow-hidden rounded-3xl border border-white/10 bg-white shadow-soft lg:grid-cols-[1.05fr_0.95fr]">
+      <div className="mx-auto flex min-h-[calc(100dvh-5rem)] max-w-5xl items-center">
+        <div className="grid w-full overflow-hidden rounded-2xl border border-white/10 bg-white shadow-soft sm:rounded-3xl lg:grid-cols-[1.05fr_0.95fr]">
           <section className="relative hidden overflow-hidden bg-navy-950 p-10 lg:flex lg:flex-col lg:justify-between">
             <div className="absolute -right-24 -top-24 h-72 w-72 rounded-full bg-cyanbrand-500/15 blur-3xl" />
             <div className="relative">
@@ -570,11 +583,11 @@ function LoginGate({ onUnlock }) {
             </div>
           </section>
 
-          <form className="p-7 text-slate-950 sm:p-10" onSubmit={handleSubmit}>
+          <form className="p-6 text-slate-950 sm:p-10" onSubmit={handleSubmit}>
             <div className="lg:hidden"><Brand /></div>
-            <div className="mt-8 lg:mt-0">
+            <div className="mt-7 lg:mt-0">
               <p className="text-xs font-bold uppercase tracking-[0.18em] text-cyan-700">Secure access</p>
-              <h2 className="mt-3 text-3xl font-extrabold tracking-tight">Welcome back</h2>
+              <h2 className="mt-3 text-2xl font-extrabold tracking-tight sm:text-3xl">Sign in to CRMByte</h2>
               <p className="mt-2 text-sm leading-6 text-slate-600">Use your company email to continue to CRMByte.</p>
             </div>
           <div className="mt-6 grid grid-cols-2 rounded-md bg-slate-100 p-1">
@@ -1514,9 +1527,10 @@ export default function CRMApp() {
             <button className="flex h-10 w-10 items-center justify-center rounded-xl border border-slate-200 bg-white text-slate-600 transition hover:border-rose-200 hover:bg-rose-50 hover:text-rose-600" onClick={signOut} aria-label="Sign out" title="Sign out">
               <SignOutIcon />
             </button>
-          </div>
         </div>
-        {activeWorkspace === 'leads' ? <div className="mx-auto grid max-w-[1500px] grid-cols-2 overflow-hidden border-t border-slate-200 bg-slate-50/70 sm:grid-cols-4">
+      </div>
+      <MobileInstallNotice onOpen={() => setActiveWorkspace('mobile')} />
+      {activeWorkspace === 'leads' ? <div className="mx-auto grid max-w-[1500px] grid-cols-2 overflow-hidden border-t border-slate-200 bg-slate-50/70 sm:grid-cols-4">
           <Stat label="Total leads" value={stats.total} icon="leads" tone="cyan" />
           <Stat label="Open leads" value={stats.open} icon="open" tone="sky" />
           <Stat label="Pipeline value" value={money(stats.totalValue)} icon="pipeline" tone="emerald" />
