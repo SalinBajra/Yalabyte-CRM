@@ -1362,6 +1362,8 @@ export default function CRMApp() {
   const profileStatusTone = currentProfile?.status === 'busy' ? 'bg-rose-500' : currentProfile?.status === 'away' ? 'bg-amber-400' : currentProfile?.status === 'offline' ? 'bg-slate-400' : 'bg-emerald-500';
   const readNotificationIdSet = new Set(readNotificationIds);
   const unreadNotificationCount = notifications.filter((notification) => !readNotificationIdSet.has(notification.id)).length;
+  const todayLabel = new Intl.DateTimeFormat('en-US', { month: 'long', day: 'numeric', year: 'numeric' }).format(new Date());
+  const workspaceNav = [['overview', 'Dashboard'], ['leads', 'Leads'], ['pipeline', 'Pipeline'], ['contacts', 'Contacts'], ['support', 'Support'], ['mobile', 'Mobile App']];
 
   const markAllNotificationsRead = async () => {
     setDataError('');
@@ -1393,14 +1395,16 @@ export default function CRMApp() {
   return (
     <main className="crm-shell min-h-screen text-slate-950">
       <div className="sticky top-0 z-20 border-b border-slate-200/80 bg-white/90 shadow-[0_1px_16px_rgba(15,23,42,0.05)] backdrop-blur-xl">
-        <div className="mx-auto flex max-w-[1500px] flex-col gap-2.5 px-3 py-2.5 sm:gap-4 sm:px-6 sm:py-3.5 lg:flex-row lg:items-center lg:justify-between">
-          <div className="flex flex-wrap items-center gap-5">
-            <Brand compact />
-            <nav className="flex max-w-full overflow-x-auto rounded-xl border border-slate-200/80 bg-slate-100/80 p-1" aria-label="CRM workspace">
-              {[['overview', 'Dashboard'], ['leads', 'Leads'], ['pipeline', 'Pipeline'], ['contacts', 'Contacts'], ['support', 'Support'], ['mobile', 'Mobile App']].map(([workspace, label]) => (
-                <button className={`whitespace-nowrap rounded-lg px-3 py-2 text-xs font-bold transition sm:px-3.5 sm:text-sm ${activeWorkspace === workspace ? 'bg-white text-slate-950 shadow-sm' : 'text-slate-500 hover:text-slate-800'}`} key={workspace} onClick={() => setActiveWorkspace(workspace)} type="button">{label}</button>
-              ))}
-            </nav>
+        <div className="mx-auto flex max-w-[1500px] flex-col gap-3 px-3 py-3 sm:px-6 sm:py-3.5">
+          <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+          <div className="flex items-center gap-3">
+            <span className="grid h-11 w-11 place-items-center rounded-xl bg-white p-2 shadow-sm ring-1 ring-slate-200">
+              <img src="/images/yalabyte-yb-logo.png" alt="YalaByte" className="h-full w-full object-contain" />
+            </span>
+            <div>
+              <p className="text-xs font-extrabold uppercase tracking-[0.2em] text-cyan-700">CRMByte</p>
+              <p className="mt-0.5 text-sm font-semibold text-slate-500">{todayLabel}</p>
+            </div>
           </div>
           <div className="flex flex-wrap items-center gap-2">
             <span className="mr-0.5 hidden text-xs font-semibold text-slate-400 xl:inline">Welcome,</span>
@@ -1528,6 +1532,12 @@ export default function CRMApp() {
               <SignOutIcon />
             </button>
         </div>
+        </div>
+        <nav className="flex max-w-full overflow-x-auto rounded-xl border border-slate-200/80 bg-slate-100/80 p-1" aria-label="CRM workspace">
+          {workspaceNav.map(([workspace, label]) => (
+            <button className={`whitespace-nowrap rounded-lg px-3 py-2 text-xs font-bold transition sm:px-4 sm:text-sm ${activeWorkspace === workspace ? 'bg-white text-slate-950 shadow-sm' : 'text-slate-500 hover:text-slate-800'}`} key={workspace} onClick={() => setActiveWorkspace(workspace)} type="button">{label}</button>
+          ))}
+        </nav>
       </div>
       <MobileInstallNotice onOpen={() => setActiveWorkspace('mobile')} />
       {activeWorkspace === 'leads' ? <div className="mx-auto grid max-w-[1500px] grid-cols-2 overflow-hidden border-t border-slate-200 bg-slate-50/70 sm:grid-cols-4">

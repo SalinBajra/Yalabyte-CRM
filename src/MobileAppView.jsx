@@ -40,9 +40,9 @@ export default function MobileAppView() {
   return (
     <div className="mx-auto max-w-[1100px] px-3 py-4 sm:px-6 sm:py-6">
       <div className="mb-5">
-        <p className="text-[11px] font-extrabold uppercase tracking-[0.16em] text-cyan-700">Team install</p>
+        <p className="text-[11px] font-extrabold uppercase tracking-[0.16em] text-cyan-700">CRM install</p>
         <h1 className="mt-1 text-2xl font-extrabold tracking-tight text-slate-950">Mobile App</h1>
-        <p className="mt-1 text-sm text-slate-500">{isIosApp ? 'This iPhone app is installed from Xcode. Android downloads are available from the CRM website.' : 'Android can install directly from CRMByte. iPhone installs stay with Xcode or TestFlight.'}</p>
+        <p className="mt-1 text-sm text-slate-500">{isIosApp ? 'This iPhone already has CRMByte installed.' : 'Android teammates can download the APK from this page after signing in on their phone.'}</p>
       </div>
 
       <div className="grid gap-4 lg:grid-cols-[0.95fr_1.05fr]">
@@ -51,7 +51,7 @@ export default function MobileAppView() {
             <div className="flex flex-col items-center text-center">
               <span className="rounded-lg bg-cyan-50 px-2.5 py-1 text-[10px] font-extrabold uppercase tracking-[0.12em] text-cyan-700">iPhone</span>
               <h2 className="mt-3 text-xl font-extrabold tracking-tight text-slate-950">CRMByte is installed</h2>
-              <p className="mt-3 max-w-md text-sm leading-6 text-slate-500">You are already using the iOS app. For other iPhones, install from Xcode for now or use TestFlight after the Apple Developer account is ready.</p>
+              <p className="mt-3 max-w-md text-sm leading-6 text-slate-500">You are already using the iOS app. Other iPhones need Xcode for now, or TestFlight after the Apple Developer account is ready.</p>
               {testFlightUrl ? <a className="mt-5 inline-flex rounded-xl bg-slate-950 px-4 py-3 text-sm font-extrabold text-white" href={testFlightUrl}>Open TestFlight</a> : null}
             </div>
           </section>
@@ -82,21 +82,16 @@ export default function MobileAppView() {
         )}
 
         <section className="rounded-2xl border border-slate-200 bg-white p-5 shadow-card">
-          <div className="grid gap-4 sm:grid-cols-2">
-            <div className="rounded-xl border border-slate-200 p-4">
-              <span className="rounded-lg bg-slate-100 px-2.5 py-1 text-[10px] font-extrabold uppercase tracking-[0.12em] text-slate-600">Android build</span>
-              <h3 className="mt-3 text-lg font-extrabold text-slate-950">Generate the file</h3>
-              <p className="mt-2 text-sm leading-6 text-slate-500">Run `npm run build:android:apk` after installing Java and Android Studio. The APK will be copied to `public/downloads/crmbyte.apk`.</p>
-            </div>
-            <div className="rounded-xl border border-slate-200 p-4">
-              <span className="rounded-lg bg-slate-100 px-2.5 py-1 text-[10px] font-extrabold uppercase tracking-[0.12em] text-slate-600">iPhone</span>
-              <h3 className="mt-3 text-lg font-extrabold text-slate-950">Use Xcode or TestFlight</h3>
-              <p className="mt-2 text-sm leading-6 text-slate-500">APK files do not install on iPhone. For team installs, publish a TestFlight build and add the invite link here.</p>
-              {testFlightUrl ? <a className="mt-4 inline-flex rounded-lg bg-slate-950 px-4 py-2.5 text-sm font-bold text-white" href={testFlightUrl}>Open TestFlight</a> : null}
-            </div>
-          </div>
+          <span className="rounded-lg bg-slate-100 px-2.5 py-1 text-[10px] font-extrabold uppercase tracking-[0.12em] text-slate-600">Team install</span>
+          <h3 className="mt-3 text-lg font-extrabold text-slate-950">How Android teammates install</h3>
+          <ol className="mt-3 space-y-3 text-sm leading-6 text-slate-500">
+            <li><span className="font-extrabold text-slate-950">1.</span> Open the CRMByte website on the Android phone.</li>
+            <li><span className="font-extrabold text-slate-950">2.</span> Sign in with the YalaByte account.</li>
+            <li><span className="font-extrabold text-slate-950">3.</span> Open <span className="font-bold text-slate-950">Mobile App</span> and tap <span className="font-bold text-slate-950">Download APK</span>.</li>
+            <li><span className="font-extrabold text-slate-950">4.</span> If Android asks, allow installs from the browser, then open the downloaded file.</li>
+          </ol>
           <div className="mt-4 rounded-xl border border-amber-200 bg-amber-50 px-4 py-3 text-sm font-semibold text-amber-800">
-            Android may ask each teammate to allow installs from the browser. Use Play Console later if you want a smoother managed rollout.
+            iPhone cannot install APK files. iPhone teammates need Xcode for now or TestFlight later.
           </div>
         </section>
       </div>
