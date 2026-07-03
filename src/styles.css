@@ -11,8 +11,15 @@ body {
   margin: 0;
   background: #f1f5f9;
   min-width: 320px;
+  min-height: 100dvh;
+  overflow-x: hidden;
   -webkit-font-smoothing: antialiased;
+  -webkit-text-size-adjust: 100%;
   text-rendering: optimizeLegibility;
+}
+
+#root {
+  min-height: 100dvh;
 }
 
 .login-shell {
@@ -27,6 +34,8 @@ body {
     radial-gradient(circle at 8% 8%, rgba(19, 200, 222, 0.07), transparent 26rem),
     radial-gradient(circle at 92% 14%, rgba(14, 165, 233, 0.05), transparent 24rem),
     #f4f7fb;
+  min-height: 100dvh;
+  padding-bottom: max(env(safe-area-inset-bottom), 0px);
 }
 
 * {
@@ -57,6 +66,46 @@ a:focus-visible {
 button,
 a {
   -webkit-tap-highlight-color: transparent;
+}
+
+input,
+select,
+textarea {
+  font-size: 16px;
+}
+
+@media (max-width: 640px) {
+  .login-shell {
+    min-height: 100dvh;
+    padding-top: max(env(safe-area-inset-top), 1rem);
+    padding-bottom: max(env(safe-area-inset-bottom), 1rem);
+  }
+
+  .crm-shell > .sticky:first-child {
+    top: 0;
+    padding-top: env(safe-area-inset-top);
+  }
+
+  .crm-shell nav[aria-label="CRM workspace"] {
+    width: 100%;
+    scroll-snap-type: x proximity;
+    -webkit-overflow-scrolling: touch;
+  }
+
+  .crm-shell nav[aria-label="CRM workspace"] button {
+    scroll-snap-align: start;
+    flex: 0 0 auto;
+  }
+
+  .crm-shell .shadow-card {
+    box-shadow: 0 10px 24px rgba(15, 23, 42, 0.06);
+  }
+
+  input,
+  select,
+  textarea {
+    font-size: 16px !important;
+  }
 }
 
 ::selection {
