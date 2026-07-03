@@ -1,4 +1,4 @@
-import { Storage } from '@capacitor/storage';
+import { Preferences } from '@capacitor/preferences';
 
 /**
  * Offline data storage for Capacitor apps
@@ -13,7 +13,7 @@ const STORAGE_PREFIX = 'yalabyte_crm_';
 export const saveToDeviceStorage = async (key, data) => {
   try {
     const fullKey = `${STORAGE_PREFIX}${key}`;
-    await Storage.set({
+    await Preferences.set({
       key: fullKey,
       value: JSON.stringify(data),
     });
@@ -28,7 +28,7 @@ export const saveToDeviceStorage = async (key, data) => {
 export const getFromDeviceStorage = async (key) => {
   try {
     const fullKey = `${STORAGE_PREFIX}${key}`;
-    const { value } = await Storage.get({ key: fullKey });
+    const { value } = await Preferences.get({ key: fullKey });
     return value ? JSON.parse(value) : null;
   } catch (error) {
     console.error(`Failed to retrieve ${key} from storage:`, error);
@@ -42,7 +42,7 @@ export const getFromDeviceStorage = async (key) => {
 export const removeFromDeviceStorage = async (key) => {
   try {
     const fullKey = `${STORAGE_PREFIX}${key}`;
-    await Storage.remove({ key: fullKey });
+    await Preferences.remove({ key: fullKey });
   } catch (error) {
     console.error(`Failed to remove ${key} from storage:`, error);
   }
@@ -53,10 +53,10 @@ export const removeFromDeviceStorage = async (key) => {
  */
 export const clearAllDeviceStorage = async () => {
   try {
-    const { keys } = await Storage.keys();
+    const { keys } = await Preferences.keys();
     const crmKeys = keys.filter(k => k.startsWith(STORAGE_PREFIX));
     for (const key of crmKeys) {
-      await Storage.remove({ key });
+      await Preferences.remove({ key });
     }
   } catch (error) {
     console.error('Failed to clear device storage:', error);

@@ -6,6 +6,8 @@ import PipelineBoard from './PipelineBoard';
 import ProfileModal from './ProfileModal';
 import SupportView from './SupportView';
 import TeamAvatar from './TeamAvatar';
+import { getCachedLeads, getCachedTeamMembers } from './capacitor/offlineStorage';
+import { isNativeMobile, useCapacitorInit, useOfflineCache } from './hooks/useCapacitor';
 import {
   convertLeadToContact,
   deleteLeadWithAudit,
@@ -554,6 +556,9 @@ export default function CRMApp() {
 
   const selectedLead = isCreatingLead ? null : leads.find((lead) => lead.id === selectedId) || null;
 
+  useCapacitorInit(currentUser);
+  useOfflineCache(leads, teamMembers);
+
   useEffect(() => {
     window.localStorage.setItem(STORAGE_KEY, JSON.stringify(leads));
   }, [leads]);
@@ -636,6 +641,11 @@ export default function CRMApp() {
         ].filter(Boolean);
         setDataError(`CRM access setup needs attention (${failedParts.join('; ')}).`);
       }
+      if (membersResult.status === 'rejected' && isNativeMobile()) {
+        getCachedTeamMembers().then((cachedMembers) => {
+          if (active && cachedMembers?.length) setTeamMembers(cachedMembers);
+        }).catch(() => {});
+      }
     });
 
     fetchLeads()
@@ -649,6 +659,26 @@ export default function CRMApp() {
       })
       .catch((error) => {
         if (!active) return;
+        if (isNativeMobile()) {
+          getCachedLeads()
+            .then((cachedLeads) => {
+              if (!active) return;
+              if (cachedLeads?.length) {
+                setLeads(cachedLeads);
+                setSelectedId(cachedLeads[0]?.id || '');
+                setDataError('You are viewing cached CRM data. Changes will sync after the connection is restored.');
+              } else {
+                setDataError(error.message || 'Unable to load CRM data.');
+              }
+            })
+            .catch(() => {
+              if (active) setDataError(error.message || 'Unable to load CRM data.');
+            })
+            .finally(() => {
+              if (active) setDataReady(true);
+            });
+          return;
+        }
         setDataError(error.message || 'Unable to load CRM data.');
         setDataReady(true);
       });

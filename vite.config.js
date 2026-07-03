@@ -12,8 +12,4 @@ export default defineConfig({
     emptyOutDir: true,
     sourcemap: false
   },
-  // Capacitor configuration for mobile builds
-  define: {
-    'process.env.CAPACITOR': JSON.stringify(true)
-  }
 });

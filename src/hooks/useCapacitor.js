@@ -1,46 +1,39 @@
 import { useEffect } from 'react';
-import { initPushNotifications } from './capacitor/pushNotifications';
-import { cacheLeads, cacheTeamMembers } from './capacitor/offlineStorage';
+import { Capacitor } from '@capacitor/core';
+import { cacheLeads, cacheTeamMembers } from '../capacitor/offlineStorage';
+import { cleanupPushNotifications, initPushNotifications } from '../capacitor/pushNotifications';
 
-/**
- * Initialize Capacitor mobile features
- * This hook sets up push notifications and offline storage
- * Only runs on mobile devices, not on web
- */
-export const useCapacitorInit = () => {
+export const isNativeMobile = () => Capacitor.isNativePlatform();
+
+export const useCapacitorInit = (currentUser) => {
   useEffect(() => {
+    if (!isNativeMobile() || !currentUser?.id) return undefined;
+
+    let cancelled = false;
     const initCapacitor = async () => {
-      // Only initialize if running on mobile (Capacitor environment)
-      if (typeof process !== 'undefined' && process.env.CAPACITOR) {
-        try {
-          console.log('Initializing Capacitor mobile features...');
-          
-          // Initialize push notifications
-          await initPushNotifications();
-          
-          console.log('Capacitor initialized successfully');
-        } catch (error) {
-          console.error('Failed to initialize Capacitor:', error);
-        }
+      try {
+        await initPushNotifications(currentUser);
+        if (!cancelled) console.log('Capacitor mobile features initialized.');
+      } catch (error) {
+        console.error('Failed to initialize Capacitor:', error);
       }
     };
 
     initCapacitor();
-
-    // Cleanup on unmount
     return () => {
-      // Any cleanup needed
+      cancelled = true;
+      cleanupPushNotifications();
     };
-  }, []);
+  }, [currentUser?.id]);
 };
 
-/**
- * Cache data for offline access
- * Call this after fetching leads/team members
- */
 export const useOfflineCache = (leads, teamMembers) => {
   useEffect(() => {
+    if (!isNativeMobile()) return undefined;
+
+    let cancelled = false;
     const cacheData = async () => {
+      if (cancelled) return;
       if (leads && leads.length > 0) {
         await cacheLeads(leads);
       }
@@ -50,5 +43,8 @@ export const useOfflineCache = (leads, teamMembers) => {
     };
 
     cacheData();
+    return () => {
+      cancelled = true;
+    };
   }, [leads, teamMembers]);
 };

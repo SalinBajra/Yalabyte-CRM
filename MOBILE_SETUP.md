@@ -1,13 +1,13 @@
 # CRMByte Mobile Setup Guide
 
 ## Overview
-CRMByte has been configured to work as both a **web app** and **native mobile app** using Capacitor. Your existing React code, Supabase integration, and all hooks remain unchanged.
+CRMByte is configured to work as both a **web app** and **native mobile app** using Capacitor. The native shell reuses the existing React CRM, Supabase authentication, and realtime database integration.
 
 ## Project Structure
 
 ```
 Yalabyte-CRM/
-├── src/               # Your existing React app (unchanged)
+├── src/               # React CRM app
 ├── dist/              # Built web app (for mobile)
 ├── ios/               # Native iOS project (Xcode)
 ├── android/           # Native Android project
@@ -17,15 +17,17 @@ Yalabyte-CRM/
 
 ## New Features Added
 
-### 1. Push Notifications (`src/capacitor/pushNotifications.js`)
-- Automatic device token registration
-- Real-time notifications for team updates
-- No changes needed to existing Supabase setup
+### 1. Push Notification Readiness (`src/capacitor/pushNotifications.js`)
+- Requests native notification permission on iOS/Android
+- Registers the device with the native push system
+- Stores device tokens in Supabase `device_tokens`
+- Requires the `202607040001_mobile_device_tokens.sql` migration
+- Still needs FCM/APNs credentials and a server-side sender before notifications can be delivered
 
 ### 2. Offline Storage (`src/capacitor/offlineStorage.js`)
-- Automatic data caching
-- Sync when back online
-- Queue operations while offline
+- Caches leads and team members on device with Capacitor Preferences
+- Falls back to cached leads/team members when Supabase is unavailable on mobile
+- Queue helpers exist for future offline writes, but write replay is not enabled yet
 - Functions:
   - `cacheLeads()` / `getCachedLeads()`
   - `cacheTeamMembers()` / `getCachedTeamMembers()`
@@ -89,8 +91,8 @@ npm run build
 ✅ **Web app unchanged** - Deploy to web anytime
 ✅ **Same codebase** - No duplication, all changes sync
 ✅ **Live data** - Supabase real-time subscriptions work on mobile
-✅ **Notifications** - Team gets push notifications
-✅ **Offline support** - Optional caching for offline work
+✅ **Notification tokens** - Mobile devices register tokens in Supabase
+✅ **Offline viewing** - Cached leads/team members load when the mobile app is offline
 ✅ **No app store fees** - Internal distribution is free
 
 ## Next Steps
@@ -115,9 +117,12 @@ npm run build
 **App not updating?**
 - Run: `npx cap sync` to sync web changes to native projects
 
-**Notifications not working?**
+**Notifications not arriving?**
 - Check permissions are granted in device settings
-- Verify Supabase backend configuration
+- Run the `device_tokens` Supabase migration
+- Configure Firebase Cloud Messaging for Android
+- Configure Apple Push Notification service and Push Notifications capability for iOS
+- Add a server-side sender that reads `device_tokens` and sends messages through FCM/APNs
 
 **Build errors?**
 - Delete `ios/` or `android/` and run `npx cap add ios` or `npx cap add android`
